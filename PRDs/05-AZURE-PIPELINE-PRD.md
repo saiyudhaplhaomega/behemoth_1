@@ -1,9 +1,9 @@
 # PRD 05 - Azure Pipeline Architecture
 
-**Version:** 1.0  
-**Date:** 2026-04-16  
-**Related To:** Master PRD  
-**Status:** Draft
+**Version:** 2.0
+**Date:** 2026-04-16
+**Related To:** Master PRD
+**Status:** DEFERRED (Post-MVP)
 
 ---
 
@@ -832,8 +832,113 @@ TASKS:
 
 ---
 
-## 7. Next Steps
+## 8. Azure Features (Social + Community Pipeline)
+
+### 8.1 Assigned Features
+
+Azure serves as the **social trading** and **community engagement** pipeline. Assigned features:
+
+| Feature | Components | Purpose |
+|---------|------------|---------|
+| **Social Trading / Signal Marketplace** | Azure SQL + AOAI + Azure ML | Share, copy, rank signals |
+| **Paper Trading Competitions** | Azure SQL + App Service + Power BI | Leaderboards, prizes |
+| **Trading Journal + AI Insights** | AOAI (GPT-4) + Azure Cognitive Search | AI diary generation |
+| **Options Flow Analysis** | Azure Functions + Azure SQL + Power BI | Put/call ratio, IV rank |
+
+### 8.2 Cross-Pipeline Events: Azure Publishes
+
+```python
+# Azure publishes (social features)
+EVENTS_AZURE_PUBLISHES = {
+    "signal.copied": {
+        "description": "A signal was copied by another trader",
+        "payload": {
+            "signal_id": "str",
+            "copier_id": "str",
+            "copier_username": "str",
+            "timestamp": "ISO8601"
+        },
+        "consumers": ["AWS", "GCP"]
+    },
+    "competition.update": {
+        "description": "Competition leaderboard updated",
+        "payload": {
+            "competition_id": "str",
+            "rankings": [{"user_id": "str", "pnl_pct": "float"}],
+            "timestamp": "ISO8601"
+        },
+        "consumers": ["Databricks"]
+    },
+    "trade.journal_entry": {
+        "description": "New trading journal entry created",
+        "payload": {
+            "user_id": "str",
+            "symbol": "str",
+            "action": "str",
+            "pnl": "float",
+            "tags": ["list"],
+            "timestamp": "ISO8601"
+        },
+        "consumers": ["Databricks"]
+    }
+}
+```
+
+### 8.3 Cross-Pipeline Events: Azure Consumes
+
+```python
+# Azure subscribes to (consumed from others)
+EVENTS_AZURE_CONSUMES = {
+    "signal.generated": {
+        "publisher": "AWS",
+        "description": "Core trading signal from ML models"
+    },
+    "whale.alert": {
+        "publisher": "GCP",
+        "description": "Blockchain whale activity alert"
+    },
+    "onchain.signal": {
+        "publisher": "GCP",
+        "description": "On-chain activity signal"
+    }
+}
+```
+
+### 8.4 Fallback Behavior When Others Are Down
+
+| Pipeline Down | Azure Behavior | User Impact |
+|--------------|---------------|-------------|
+| **AWS down** | Social signals still work (local Azure SQL) | ML-generated signals unavailable |
+| **GCP down** | Blockchain alerts show cached data | No new whale alerts |
+| **Databricks down** | Historical performance shows cached data | No live attribution |
+
+### 8.5 Standalone Operation
+
+Azure can operate **fully independently** for its social features:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                    AZURE STANDALONE OPERATION                                      │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                     │
+│  Social Trading, Competitions, Trading Journal:                                    │
+│  - Azure SQL stores all social data locally                                       │
+│  - AOAI (GPT-4) runs independently                                                │
+│  - Azure Functions process events via Event Hub                                    │
+│  - Power BI dashboards pull from Azure SQL directly                                 │
+│                                                                                     │
+│  NO EXTERNAL DEPENDENCIES REQUIRED FOR SOCIAL FEATURES                           │
+│                                                                                     │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 9. Next Steps
 
 1. **Review and approve Azure Pipeline PRD**
-2. **Turn off Azure resources**
-3. Move to **Databricks Pipeline PRD**
+2. Build Azure core infrastructure (VNet, AKS, Azure SQL)
+3. Setup AOAI for chat/summarization features
+4. Deploy social trading backend
+5. Configure Power BI for leaderboards
+6. Integrate Cloudflare Queues for cross-pipeline events

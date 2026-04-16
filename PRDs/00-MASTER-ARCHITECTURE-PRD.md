@@ -31,13 +31,13 @@ An AI-powered financial markets prediction platform that combines multi-cloud ML
 │                           BUSINESS VALUE                                      │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  VALUE PROPOSITION                          │    METRICS                   │
+│  VALUE PROPOSITION                           │    METRICS                   │
 │  ───────────────────────────────────────────┼─────────────────────────────  │
-│  • Multi-cloud resilience                   │  99.99% uptime               │
-│  • Cost optimization via cloud arbitrage    │  30-40% cost savings         │
-│  • ML innovation velocity                   │  5x faster model deployment  │
-│  • Unified observability                    │  Single pane of glass        │
-│  • Talent flexibility                       │  Cloud-agnostic skills       │
+│  • AWS-core infrastructure                  │  Single-cloud simplicity      │
+│  • Cost optimization via cloud arbitrage    │  30-40% savings (future)       │
+│  • ML innovation velocity                  │  5x faster model deployment   │
+│  • Unified observability                    │  Single pane of glass         │
+│  • Swarm intelligence                       │  10x faster signal generation │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -77,31 +77,32 @@ An AI-powered financial markets prediction platform that combines multi-cloud ML
 │  ┌───────────────────────────────────┼───────────────────────────────────────────┐  │
 │  │                           CLOUD PIPELINES                                      │  │
 │  │                                                                                │  │
-│  │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  ┌──────────┐│  │
-│  │  │     AWS         │  │      GCP        │  │     Azure       │  │ Databricks││  │
-│  │  │  ┌───────────┐  │  │  ┌───────────┐  │  │  ┌───────────┐  │  │┌────────┐││  │
-│  │  │  │Frontend   │  │  │  │Frontend   │  │  │  │Frontend   │  │  ││Frontend│││  │
-│  │  │  │(React)    │  │  │  │(React)    │  │  │  │(React)    │  │  ││(React) │││  │
-│  │  │  └───────────┘  │  │  └───────────┘  │  │  └───────────┘  │  │└────────┘││  │
-│  │  │  ┌───────────┐  │  │  ┌───────────┐  │  │  ┌───────────┐  │  │┌────────┐││  │
-│  │  │  │Backend    │  │  │  │Backend    │  │  │  │Backend    │  │  ││Backend │││  │
-│  │  │  │(Python)  │  │  │  │(Python)       │  │  │  │(Python)     │  │  ││(Python)│││  │
-│  │  │  └───────────┘  │  │  └───────────┘  │  │  └───────────┘  │  │└────────┘│  │
-│  │  │  ┌───────────┐  │  │  ┌───────────┐  │  │  ┌───────────┐  │  │┌────────┐││  │
-│  │  │  │ ML Agent  │  │  │  │ ML Agent  │  │  │  │ ML Agent  │  │  ││ ML     │││  │
-│  │  │  │ (Google   │  │  │  │(LangChain │  │  │  │ (CrewAI)  │  │  ││ Agent  │││  │
-│  │  │  │  ADK)     │  │  │  │+LangGraph)│  │  │  │           │  │  ││(Custom)│││  │
-│  │  │  └───────────┘  │  │  └───────────┘  │  │  └───────────┘  │  │└────────┘││  │
-│  │  │  ┌───────────┐  │  │  ┌───────────┐  │  │  ┌───────────┐  │  │┌────────┐││  │
-│  │  │  │Data Lake  │  │  │  │Data Lake  │  │  │  │Data Lake  │  │  ││Delta   │││  │
-│  │  │  │(S3)       │  │  │  │(GCS)      │  │  │  │(ADLS)     │  │  ││Lake    │││  │
-│  │  │  └───────────┘  │  │  └───────────┘  │  │  └───────────┘  │  │└────────┘││  │
-│  │  │  ┌───────────┐  │  │  ┌───────────┐  │  │  ┌───────────┐  │  │┌────────┐││  │
-│  │  │  │ ML Pipeline│  │  │  │ML Pipeline│  │  │  │ML Pipeline│  │  ││ ML     │││  │
-│  │  │  │(SageMaker)│  │  │  │(Vertex AI)│  │  │  │(Azure ML) │  │  ││Pipeline│││  │
-│  │  │  └───────────┘  │  │  └───────────┘  │  │  └───────────┘  │  ││(DB    │││  │
-│  │  │  ┌───────────┐  │  │  ┌───────────┐  │  │  ┌───────────┐  │  ││Runtime)│││  │
-│  │  │  │ETL/ELT    │  │  │  │ETL/ELT    │  │  │  │ETL/ELT    │  │  ││        │││  │
+│  │  ┌─────────────────────────────────────────────────────────────────────────┐    │  │
+│  │  │                                                                   MVP   │    │  │
+│  │  │  ┌───────────────────────────────────────────────────────────────┐   │    │  │
+│  │  │  │                        AWS (ACTIVE)                            │   │    │  │
+│  │  │  │  ┌───────────┐  ┌───────────────────────────────────────────┐│   │    │  │
+│  │  │  │  │ Unified   │  │  Backend  │  ML Agent  │  Data Lake  │      ││   │    │  │
+│  │  │  │  │ Dashboard │  │(FastAPI)  │(Google ADK│  (S3)      │      ││   │    │  │
+│  │  │  │  │ (Next.js) │  │           │+CrewAI)    │            │      ││   │    │  │
+│  │  │  │  └───────────┘  │           │            │            │      ││   │    │  │
+│  │  │  │                 │  ML Pipeline│          │  ETL      │      ││   │    │  │
+│  │  │  │                 │(SageMaker) │           │ (Glue)    │      ││   │    │  │
+│  │  │  │                 └────────────┴───────────┴───────────┴──────┘│   │    │  │
+│  │  │  └───────────────────────────────────────────────────────────────┘   │    │  │
+│  │  └───────────────────────────────────────────────────────────────────┘   │  │
+│  │                                                                                │  │
+│  │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐             │  │
+│  │  │      GCP        │  │     Azure       │  │   Databricks    │             │  │
+│  │  │   (DEFERRED)    │  │   (DEFERRED)    │  │   (DEFERRED)    │             │  │
+│  │  │                 │  │                 │  │                 │             │  │
+│  │  │  • BigQuery     │  │  • Azure SQL    │  │  • Delta Lake   │             │  │
+│  │  │  • Vertex AI    │  │  • Azure ML     │  │  • Spark       │             │  │
+│  │  │  • Cloud Fn     │  │  • AOAI (GPT-4) │  │  • MLflow      │             │  │
+│  │  └─────────────────┘  └─────────────────┘  └─────────────────┘             │  │
+│  │                                                                                │  │
+│  │  All DEFERRED pipelines use Cloudflare Queues for future event integration   │  │
+│  └───────────────────────────────────────────────────────────────────────────────┘  │
 │  │  │  │(Glue)     │  │  │  │(Dataflow) │  │  │  │(DataFact.)│  │  ││(DLT)  │││  │
 │  │  │  └───────────┘  │  │  └───────────┘  │  │  └───────────┘  │  │└────────┘││  │
 │  │  └─────────────────┘  └─────────────────┘  └─────────────────┘  └──────────┘│  │
@@ -130,138 +131,341 @@ An AI-powered financial markets prediction platform that combines multi-cloud ML
 | Layer | Technology | Justification |
 |-------|------------|---------------|
 | **Frontend** | Next.js 14, React 18, TypeScript | SEO, SSR, Type safety |
+| **Frontend Hosting** | **Cloudflare Pages** | Free, global CDN, scale-to-zero |
 | **Backend** | Python + FastAPI | Best ML ecosystem, unified stack |
-| **AI Agents** | Google ADK, LangChain, CrewAI | Specialized per pipeline |
-| **ML Platforms** | SageMaker, Vertex AI, Azure ML, Databricks | Cloud-native ML |
-| **Data Lakes** | S3, GCS, ADLS Gen2, Delta Lake | Scalable storage |
-| **ETL** | Glue, Dataflow, Data Factory, DLT | Cloud-specific optimized |
-| **IaC** | Terraform | Multi-cloud consistent |
-| **CI/CD** | GitHub Actions, ArgoCD | Industry standard |
-| **Observability** | Grafana + Prometheus + Loki + Tempo | Unified multi-cloud |
+| **Backend Hosting** | **Lambda + Cloudflare Workers** | Pay-per-invocation, scale-to-zero |
+| **AI Agents** | **Google ADK** (primary), **CrewAI** (Bull/Bear/Judge) | ADK for orchestration, CrewAI for debate swarm |
+| **ML Platform** | **SageMaker** (XGBoost, LSTM) | Primary ML training/inference (stopped when idle) |
+| **Data Lake** | **S3** | Primary data storage |
+| **Vector DB** | **ChromaDB** | Embeddings storage |
+| **Knowledge Graph** | **Neo4j Aura** | Entity relationship traversal |
+| **Cache** | **Cloudflare KV** | Free tier, global, scale-to-zero |
+| **Database** | **RDS Aurora Serverless v2** | Min capacity = 0, scales on demand |
+| **Compute** | **Lambda** (<100ms arbitrage) + Cloudflare Workers | Serverless, pay per request |
+| **API Gateway** | **Cloudflare Workers** | $0.50/million requests, global |
+| **IaC** | Terraform | Infrastructure as code |
+| **CI/CD** | GitHub Actions | Industry standard |
+| **Observability** | LangSmith + Grafana (on-demand) | Unified monitoring + agent tracing |
 | **Contract Testing** | Pact | API contract validation |
+| **Secrets** | HashiCorp Vault | Cloud-agnostic secrets |
+
+**Scale-to-Zero Design:** All components designed to cost $0 when idle. Only pay for compute when actively running workloads.
 
 ---
 
 ## 3. Pipeline Specifications
 
-### 3.1 AWS Pipeline
+### 3.1 AWS Pipeline (CORE - 100% Focus)
 
-| Component | Technology | Framework |
-|-----------|------------|-----------|
-| Frontend | Next.js | React |
-| Backend | **Python + FastAPI** | AsyncIO + Pydantic |
-| AI Agent | Google ADK | Agent Development Kit |
-| ML Platform | SageMaker | Built-in algorithms, custom |
-| ETL | AWS Glue | Spark |
-| Data Lake | S3 | Parquet, Delta |
-| Database | RDS PostgreSQL | Primary DB |
-| Cache | ElastiCache Redis | Session, cache |
-| IaC | Terraform | AWS-native modules |
-| Agent Framework | **Google ADK** | Cloud-agnostic agents |
+| Component | Technology | Scale-to-Zero |
+|-----------|------------|---------------|
+| Frontend | Next.js + Cloudflare Pages | ✅ Free when idle |
+| Backend | Python + FastAPI (Lambda) | ✅ Pay per invocation |
+| AI Agent | Google ADK (Lambda function) | ✅ Pay per invocation |
+| Swarm Debate | CrewAI (Lambda) | ✅ Pay per invocation |
+| ML Platform | SageMaker | ✅ Stopped when idle (saves $0.138/hr) |
+| Arbitrage Compute | Lambda | ✅ Pay per ms |
+| Data Lake | S3 | ✅ Always $0.023/hr (storage only) |
+| Vector DB | ChromaDB (Lambda embedded) | ✅ Pay per invocation |
+| Knowledge Graph | Neo4j Aura | ✅ ~$0.05/hr when idle |
+| Database | RDS Aurora Serverless v2 | ✅ Min capacity = 0 |
+| Cache | Cloudflare KV | ✅ Free tier: 100K reads/day |
+| IaC | Terraform | N/A |
 
-### 3.2 GCP Pipeline
-
-| Component | Technology | Framework |
-|-----------|------------|-----------|
-| Frontend | Next.js | React |
-| Backend | **Python + FastAPI** | AsyncIO + Pydantic |
-| AI Agent | LangChain + LangGraph | Graph-based orchestration |
-| ML Platform | Vertex AI | AutoML, custom |
-| ETL | Dataflow | Apache Beam |
-| Data Lake | GCS + BigQuery | External tables |
-| Database | Cloud SQL | PostgreSQL |
-| Cache | Memorystore | Redis |
-| IaC | Terraform | GCP modules |
-| Agent Framework | **LangChain + LangGraph** | Composable agents |
-
-### 3.3 Azure Pipeline
-
-| Component | Technology | Framework |
-|-----------|------------|-----------|
-| Frontend | Next.js | React |
-| Backend | **Python + FastAPI** | AsyncIO + Pydantic |
-| AI Agent | CrewAI | Multi-agent orchestration |
-| ML Platform | Azure ML | AutoML, Designer |
-| ETL | Data Factory | Pipeline orchestration |
-| Data Lake | ADLS Gen2 | Delta Lake |
-| Database | Azure SQL | PostgreSQL compatible |
-| Cache | Azure Cache | Redis |
-| IaC | Terraform | Azure modules |
-| Agent Framework | **CrewAI** | Team-based agents |
-
-### 3.4 Databricks Pipeline
-
-| Component | Technology | Framework |
-|-----------|------------|-----------|
-| Frontend | Next.js | React |
-| Backend | **Python + FastAPI** | AsyncIO + Pydantic |
-| AI Agent | Custom Framework | MLflow + LangServe |
-| ML Platform | Databricks Runtime | Spark ML, TensorFlow, PyTorch |
-| ETL | Delta Live Tables | Spark SQL |
-| Data Lake | Delta Lake | Multi-cloud |
-| Database | Databricks SQL | Unity Catalog |
-| Cache | Photon | Vectorized engine |
-| IaC | Terraform + Databricks Terraform | Workspace provisioning |
-| Agent Framework | **Custom + MLflow** | Native integration |
-
----
+**Note:** GCP, Azure, and Databricks pipelines are **deferred** until post-MVP. Focus entirely on AWS for speed-to-market and operational simplicity.
 
 ## 4. Agent System Architecture
 
-### 4.1 Hybrid Agent Architecture
+### 4.1 Hybrid Quant + Agent Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                         AGENT ORCHESTRATION LAYER                                │
-├─────────────────────────────────────────────────────────────────────────────────┤
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                    TRADING SIGNAL PIPELINE                                      │
+├─────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                  │
-│  ┌─────────────────────────────────────────────────────────────────────────────┐ │
-│  │                      UNIFIED META ORCHESTRATOR                               │ │
-│  │                                                                               │ │
-│  │  • Routes queries to appropriate pipeline agent                              │ │
-│  │  • Aggregates responses from multiple agents                                 │ │
-│  │  • Maintains conversation context across pipelines                           │ │
-│  │  • LangSmith integration for observability                                   │ │
-│  └─────────────────────────────────────────────────────────────────────────────┘ │
-│                                      │                                            │
-│          ┌───────────────────────────┼───────────────────────────┐                 │
-│          │                           │                           │                 │
-│          ▼                           ▼                           ▼                 │
-│  ┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐       │
-│  │    AWS AGENT         │  │    GCP AGENT        │  │    Azure AGENT      │       │
-│  │  ┌────────────────┐  │  │  ┌────────────────┐  │  │  ┌────────────────┐  │       │
-│  │  │ • Tool: Bedrock│  │  │  │ • Tool: Gemini│  │  │  │ • Tool: AOAI  │  │       │
-│  │  │ • Tool: Lambda │  │  │  │ • Tool: Cloud │  │  │  │ • Tool: Azure │  │       │
-│  │  │ • Tool: SageMk │  │  │  │   Functions   │  │  │  │   Functions  │  │       │
-│  │  │ • RAG: Aurora  │  │  │  │ • RAG: BigQ   │  │  │  │ • RAG: Cosmos │  │       │
-│  │  │ • Memory: Redis│  │  │  │ • Memory:Mem. │  │  │  │ • Memory: Redis│  │       │
-│  │  │ Framework: ADK │  │  │  │Framework:LC+LG│  │  │  │ Framework:Crew│  │       │
-│  │  └────────────────┘  │  │  └────────────────┘  │  │  └────────────────┘  │       │
-│  └─────────────────────┘  └─────────────────────┘  └─────────────────────┘       │
-│                                      │                                            │
-│                                      ▼                                            │
-│                          ┌─────────────────────┐                                 │
-│                          │  DATABRICKS AGENT   │                                 │
-│                          │  ┌────────────────┐  │                                 │
-│                          │  │ • Tool: Llama  │  │                                 │
-│                          │  │ • Tool: Spark  │  │                                 │
-│                          │  │ • RAG: Delta   │  │                                 │
-│                          │  │ • Memory: DBSQL│  │                                 │
-│                          │  │Framework:Custom│  │                                 │
-│                          │  └────────────────┘  │                                 │
-│                          └─────────────────────┘                                 │
+│  ┌──────────────────────────────────────────────────────────────────────────┐  │
+│  │                          XGBOOST SIGNAL GENERATION                          │  │
+│  │  Technical signals from SageMaker (RSI, MACD, Bollinger, momentum, etc.)    │  │
+│  └──────────────────────────────────────────────────────────────────────────┘  │
+│                                      │                                           │
+│                                      ▼                                           │
+│  ┌──────────────────────────────────────────────────────────────────────────┐  │
+│  │                        CREWAI DEBATE SWARM                                │  │
+│  │                                                                           │  │
+│  │  ┌──────────────────┐           ┌──────────────────┐                     │  │
+│  │  │   BULL AGENT    │           │   BEAR AGENT     │                     │  │
+│  │  │   (CrewAI)      │           │   (CrewAI)       │                     │  │
+│  │  │                 │           │                  │                     │  │
+│  │  │ • News bullish  │           │ • Risk-off bias  │                     │  │
+│  │  │ • SEC filings   │           │ • Bearish TA     │                     │  │
+│  │  │ • Sentiment +   │           │ • Macro concerns │                     │  │
+│  │  │                 │◀────────▶│                  │                     │  │
+│  │  └────────┬─────────┘           └────────┬─────────┘                     │  │
+│  │           │                              │                               │  │
+│  │           └──────────────────────────────┘                               │  │
+│  │                              │                                            │  │
+│  │                              ▼                                            │  │
+│  │                    ┌──────────────────┐                                   │  │
+│  │                    │   JUDGE AGENT    │                                   │  │
+│  │                    │   (CrewAI)       │                                   │  │
+│  │                    │                  │                                   │  │
+│  │                    │ • Conviction scoring                    │  │
+│  │                    │ • Portfolio sizing                      │  │
+│  │                    │ • Risk-adjusted position               │  │
+│  │                    └────────┬─────────┘                                   │  │
+│  └─────────────────────────────┼────────────────────────────────────────────┘  │
+│                                │                                             │
+│                                ▼                                             │
+│  ┌──────────────────────────────────────────────────────────────────────────┐  │
+│  │                    EXECUTION LAYER (<100ms)                               │  │
+│  │                                                                           │  │
+│  │              Pure programmatic - NO LLMs in hot path                        │  │
+│  │              Python/Lambda for speed                                       │  │
+│  └──────────────────────────────────────────────────────────────────────────┘  │
 │                                                                                  │
-└─────────────────────────────────────────────────────────────────────────────────┘
+└─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 4.2 Per-Pipeline Agent Specifications
+### 4.2 Google ADK Meta-Orchestrator
 
-| Pipeline | Framework | Backend | AI Agent | ML Platform |
-|---------|-----------|---------|----------|-------------|
-| **AWS** | Next.js 14 | **Python + FastAPI** | Google ADK | SageMaker |
-| **GCP** | Next.js 14 | **Python + FastAPI** | LangChain + LangGraph | Vertex AI |
-| **Azure** | Next.js 14 | **Python + FastAPI** | CrewAI | Azure ML |
-| **Databricks** | Next.js 14 | **Python + FastAPI** | Custom + MLflow | Databricks Runtime |
+The **Google ADK** serves as the top-level meta-orchestrator that:
+
+1. Routes incoming queries to appropriate agents
+2. Coordinates the CrewAI Bull/Bear/Judge debate swarm
+3. Maintains conversation context across sessions
+4. Integrates with LangSmith for observability
+5. Manages RAG context from ChromaDB + Neo4j
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                    GOOGLE ADK META-ORCHESTRATOR                                  │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  ┌──────────────────────────────────────────────────────────────────────────┐  │
+│  │  ADK Agent                                                               │  │
+│  │  ├── Tool: Bedrock (Claude) OR Gemini (via ADK)                         │  │
+│  │  ├── Tool: Lambda (arbitrage triggers)                                   │  │
+│  │  ├── Tool: SageMaker (ML inference)                                       │  │
+│  │  ├── RAG: ChromaDB (embeddings) + Neo4j (relationships)                  │  │
+│  │  ├── Memory: ElastiCache Redis (session)                                   │  │
+│  │  └── Sub-Agent: CrewAI Swarm (Bull/Bear/Judge)                            │  │
+│  └──────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 4.3 Lambda Functions (Latency-Critical Paths)
+
+| Lambda | Latency Target | Purpose | LLM? |
+|--------|---------------|---------|------|
+| **Arbitrage Detector** | <100ms | Speed gap detection, cross-venue spread | NO |
+| **Event Triggers** | <500ms | Price alert processing, signal propagation | NO |
+| **Risk Parameters** | 5-10s | Dynamic risk limit adjustment | NO |
+| **Market Regime** | 30-60s | Regime detection (trending, volatile, calm) | NO |
+
+**Critical Rule:** Lambda functions in the hot path contain **NO LLM calls**. They are purely programmatic calculations.
+
+### 4.4 Cross-Pipeline Resilience Architecture
+
+Each pipeline operates **independently** but shares data via **async events**. If one pipeline goes down, others continue operating.
+
+#### Core Principles
+
+1. **Each pipeline has its own data store** - Can operate independently
+2. **Async event-driven communication** - No synchronous blocking calls
+3. **Essential data replicated** - Critical data mirrored across pipelines
+4. **Feature flags with fallbacks** - Frontend routes to available pipeline
+5. **Circuit breakers** - Failed pipelines don't block others
+
+#### Cross-Pipeline Event Bus (Cloudflare Queues)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                    RESILIENT CROSS-PIPELINE ARCHITECTURE                         │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  ┌───────────────────────────────────────────────────────────────────────────┐   │
+│  │                     SHARED EVENT BUS (Cloudflare Queues)                   │   │
+│  │  All pipelines publish events here                                          │   │
+│  │  If pipeline is down → events queue → retry when restored                   │   │
+│  │  Survives any single cloud provider outage                                   │   │
+│  └───────────────────────────────────────────────────────────────────────────┘   │
+│                                      │                                           │
+│  ┌─────────────────────────────────┼─────────────────────────────────────────┐   │
+│  │                                 │                                          │   │
+│  ▼                                 ▼                                          ▼   │
+│┌──────────────┐            ┌──────────────┐            ┌──────────────────┐      │
+││     AWS       │            │    AZURE     │            │      GCP         │      │
+││              │            │              │            │                  │      │
+││ OWNED DATA:   │            │ OWNED DATA:   │            │ OWNED DATA:      │      │
+│• Polymarket    │            │• Social       │            │• On-chain        │      │
+│• Real-time    │            │  signals      │            │  analytics       │      │
+│• Core signals │            │• Competitions │            │• Whale tracking  │      │
+│• ML models    │            │• Trading      │            │• DeFi data       │      │
+││              │            │  journal      │            │                  │      │
+││ FALLBACK FOR: │            │ FALLBACK FOR: │            │ FALLBACK FOR:    │      │
+│• On-chain     │◀──────────▶│• Real-time    │◀──────────▶│• Social features │      │
+│  (if GCP down)│  Async via │  (if AWS down)│  Async via │  (if Azure down)│      │
+│• Social       │  EventBus  │• ML inference │  EventBus  │• ML inference    │      │
+│  (if Azure down)         │  (if AWS down) │            │  (if AWS down)   │      │
+│              │            │              │            │                  │      │
+│┌──────────────┐            │              │            │                  │      │
+││  DATABRICKS  │            │              │            │                  │      │
+││              │            │              │            │                  │      │
+││ OWNED DATA:   │            │              │            │                  │      │
+││• Historical  │            │              │            │                  │      │
+││  backtests   │            │              │            │                  │      │
+││• Factor      │            │              │            │                  │      │
+││  research    │            │              │            │                  │      │
+││              │            │              │            │                  │      │
+││ FALLBACK FOR: │            │              │            │                  │      │
+││• On-chain     │◀──────────▶│              │            │                  │      │
+│  (async, GCP  │            │              │            │                  │      │
+│  still owns)  │            │              │            │                  │      │
+│└──────────────┘            │              │            │                  │      │
+└────────────────────────────┴──────────────┴────────────┴──────────────────┘      │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Event Types
+
+```python
+# Cross-pipeline events published to Cloudflare Queues
+
+EVENT_TYPES = {
+    # AWS publishes (core signals)
+    "signal.generated": {"publisher": "AWS", "consumers": ["Azure", "GCP", "Databricks"]},
+    "price.update": {"publisher": "AWS", "consumers": ["Azure", "GCP"]},
+    "arbitrage.opportunity": {"publisher": "AWS", "consumers": ["Azure"]},
+
+    # Azure publishes (social features)
+    "signal.copied": {"publisher": "Azure", "consumers": ["AWS", "GCP"]},
+    "competition.update": {"publisher": "Azure", "consumers": ["Databricks"]},
+    "trade.journal_entry": {"publisher": "Azure", "consumers": ["Databricks"]},
+
+    # GCP publishes (on-chain)
+    "whale.alert": {"publisher": "GCP", "consumers": ["AWS", "Azure"]},
+    "onchain.signal": {"publisher": "GCP", "consumers": ["AWS", "Azure", "Databricks"]},
+    "defi.liquidity_change": {"publisher": "GCP", "consumers": ["AWS"]},
+
+    # Databricks publishes (historical)
+    "backtest.complete": {"publisher": "Databricks", "consumers": ["Azure", "AWS"]},
+    "factor.research_update": {"publisher": "Databricks", "consumers": ["AWS"]},
+}
+```
+
+#### Pipeline Independence Matrix
+
+| Feature | Primary Pipeline | Can Run Alone | Falls Back To | Works If Others Down |
+|---------|------------------|---------------|---------------|---------------------|
+| **Real-Time WebSocket** | AWS | ✅ Yes | Cached prices from S3 | Any |
+| **3D Market Globe** | AWS | ✅ Yes | Static last-known state | None (display only) |
+| **SEC Filing Tracker** | AWS | ✅ Yes | Polling-based (no WebSocket) | None |
+| **Factor Analysis** | AWS | ✅ Yes | Pre-computed factor loads | None |
+| **Explainable AI** | AWS | ✅ Yes | Cached SHAP values | None |
+| **Rebalancing Engine** | AWS | ✅ Yes | Scheduled Lambda runs independently | None |
+| **Social Trading** | Azure | ✅ Yes | Local Azure SQL only | None |
+| **Competitions** | Azure | ✅ Yes | Local leaderboard only | None |
+| **Trading Journal** | Azure | ✅ Yes | Local storage only | None |
+| **Options Flow** | Azure | ✅ Yes | Azure Functions run independently | None |
+| **On-Chain Analytics** | GCP | ✅ Yes | BigQuery data still accessible | AWS (read-only copy) |
+| **DeFi Integration** | GCP | ✅ Yes | Cloud Functions independent | AWS (cached DeFi data) |
+| **Whale Tracking** | GCP | ✅ Yes | BigQuery historical queries | None |
+| **Edge Deployment** | GCP | ✅ Yes | Cloudflare Workers independent | AWS Lambda@Edge |
+| **Backtesting** | Databricks | ✅ Yes | Delta Lake local | None |
+| **Performance Attribution** | Databricks | ✅ Yes | Delta Lake + Spark | None |
+| **Factor Research** | Databricks | ✅ Yes | Local notebooks | AWS SageMaker |
+
+#### Circuit Breaker Pattern
+
+```python
+# Lambda circuit breaker for cross-pipeline calls
+
+class CircuitBreaker:
+    def __init__(self, failure_threshold=5, recovery_timeout=60):
+        self.failure_threshold = failure_threshold
+        self.recovery_timeout = recovery_timeout
+        self.failures = 0
+        self.last_failure_time = None
+        self.state = "CLOSED"  # CLOSED, OPEN, HALF_OPEN
+
+    def call(self, func, *args, **kwargs):
+        if self.state == "OPEN":
+            if time.time() - self.last_failure_time > self.recovery_timeout:
+                self.state = "HALF_OPEN"
+            else:
+                raise Exception("Circuit OPEN - using fallback")
+
+        try:
+            result = func(*args, **kwargs)
+            self.record_success()
+            return result
+        except Exception as e:
+            self.record_failure()
+            raise e
+
+    def record_success(self):
+        self.failures = 0
+        self.state = "CLOSED"
+
+    def record_failure(self):
+        self.failures += 1
+        self.last_failure_time = time.time()
+        if self.failures >= self.failure_threshold:
+            self.state = "OPEN"
+```
+
+#### Frontend Resilience Pattern
+
+```typescript
+// Next.js API client with fallback logic
+
+class PipelineClient {
+  private pipelines = {
+    aws: 'https://api.aws.behemoth.ai',
+    azure: 'https://api.azure.behemoth.ai',
+    gcp: 'https://api.gcp.behemoth.ai',
+    databricks: 'https://api.databricks.behemoth.ai'
+  };
+
+  private async callWithFallback<T>(
+    primary: string,
+    fallback: string,
+    endpoint: string
+  ): Promise<T> {
+    try {
+      const response = await fetch(`${this.pipelines[primary]}${endpoint}`);
+      if (!response.ok) throw new Error(`${primary} failed`);
+      return response.json();
+    } catch (primaryError) {
+      console.warn(`${primary} unavailable, using ${fallback}`);
+
+      // Try fallback
+      try {
+        const fallbackResponse = await fetch(`${this.pipelines[fallback]}${endpoint}`);
+        if (!fallbackResponse.ok) throw new Error(`${fallback} also failed`);
+        return fallbackResponse.json();
+      } catch (fallbackError) {
+        // Return cached data if both fail
+        return this.getCachedData(endpoint);
+      }
+    }
+  }
+
+  async getRealtimePrice(symbol: string) {
+    return this.callWithFallback('aws', 'azure', `/prices/${symbol}`);
+  }
+
+  async getSocialSignals() {
+    return this.callWithFallback('azure', 'aws', '/social/signals');
+  }
+
+  async getOnChainMetrics() {
+    return this.callWithFallback('gcp', 'aws', '/onchain/metrics');
+  }
+}
+```
 
 ---
 
@@ -434,70 +638,59 @@ enterprise-mlops-platform/
 
 ---
 
-## 6. Development Workflow
+## 5. Development Roadmap (AWS-Core Focus)
 
-### 6.1 Baby Steps Learning Path
+### 5.1 Phased Implementation
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                           DEVELOPMENT ROADMAP                                    │
-│                           (Per-Cloud Sequential Build)                         │
+│                    AWS-CORE DEVELOPMENT ROADMAP                              │
+│                    (Single-Cloud Focus for Speed)                          │
 ├─────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                  │
-│  PHASE 1: FOUNDATION (Weeks 1-4)                                                │
-│  ┌─────────────────────────────────────────────────────────────────────────┐    │
-│  │  Step 1.1: Frontend - Unified Dashboard (Next.js + TypeScript)          │    │
-│  │  Step 1.2: Frontend - Pipeline-specific UIs (React + TypeScript)         │    │
-│  │  Step 1.3: Backend - Unified API Gateway (Python FastAPI)                 │    │
-│  │  Step 1.4: Backend - AWS Backend (Python FastAPI)                        │    │
-│  │  Step 1.5: Backend - GCP Backend (Python FastAPI)                        │    │
-│  │  Step 1.6: Backend - Azure Backend (Python FastAPI)                      │    │
-│  │  Step 1.7: Backend - Databricks Backend (Python FastAPI)                  │    │
-│  └─────────────────────────────────────────────────────────────────────────┘    │
-│                                      │                                           │
-│  PHASE 2: AWS PIPELINE (Weeks 5-8)                                              │
-│  ┌─────────────────────────────────────────────────────────────────────────┐    │
-│  │  Step 2.1: AWS VPC, ECS, RDS (Terraform)                                │    │
-│  │  Step 2.2: AWS SageMaker Pipeline (CNN, RNN)                             │    │
-│  │  Step 2.3: AWS AI Agent (Google ADK)                                    │    │
-│  │  Step 2.4: AWS CI/CD (GitHub Actions)                                   │    │
-│  └─────────────────────────────────────────────────────────────────────────┘    │
-│                                      │                                           │
-│  PHASE 3: GCP PIPELINE (Weeks 9-11)                                             │
-│  ┌─────────────────────────────────────────────────────────────────────────┐    │
-│  │  Step 3.1: GCP VPC, GKE, Cloud SQL (Terraform)                          │    │
-│  │  Step 3.2: GCP Vertex AI Pipeline (CNN, RNN)                           │    │
-│  │  Step 3.3: GCP AI Agent (LangChain + LangGraph)                         │    │
-│  │  Step 3.4: GCP CI/CD (Cloud Build)                                     │    │
-│  └─────────────────────────────────────────────────────────────────────────┘    │
-│                                      │                                           │
-│  PHASE 4: AZURE PIPELINE (Weeks 12-14)                                          │
-│  ┌─────────────────────────────────────────────────────────────────────────┐    │
-│  │  Step 4.1: Azure VNet, AKS, Azure SQL (Terraform)                     │    │
-│  │  Step 4.2: Azure ML Pipeline (CNN, RNN)                                │    │
-│  │  Step 4.3: Azure AI Agent (CrewAI)                                     │    │
-│  │  Step 4.4: Azure CI/CD (Azure DevOps)                                  │    │
-│  └─────────────────────────────────────────────────────────────────────────┘    │
-│                                      │                                           │
-│  PHASE 5: DATABRICKS PIPELINE (Weeks 15-17)                                     │
-│  ┌─────────────────────────────────────────────────────────────────────────┐    │
-│  │  Step 5.1: Databricks Workspace, Unity Catalog (Terraform)               │    │
-│  │  Step 5.2: Databricks ML Pipeline (CNN, RNN, LLM)                        │    │
-│  │  Step 5.3: Databricks AI Agent (Custom + MLflow)                        │    │
-│  │  Step 5.4: Databricks CI/CD                                            │    │
-│  └─────────────────────────────────────────────────────────────────────────┘    │
-│                                      │                                           │
-│  PHASE 6: CROSS-PLATFORM INTEGRATION (Weeks 18-20)                            │
-│  ┌─────────────────────────────────────────────────────────────────────────┐    │
-│  │  Step 6.1: Federated Query (Trino/Presto)                               │    │
-│  │  Step 6.2: Cross-Cloud Event Bus (Kafka/MQ)                           │    │
-│  │  Step 6.3: Contract Testing (Pact)                                     │    │
-│  │  Step 6.4: E2E Testing (Playwright)                                     │    │
-│  │  Step 6.5: Performance & Security Testing                              │    │
-│  └─────────────────────────────────────────────────────────────────────────┘    │
-│                                                                                  │
+│                                                                               │
+│  PHASE 1: FOUNDATION (Weeks 1-6)                                             │
+│  ┌─────────────────────────────────────────────────────────────────────────┐  │
+│  │  1.1: Frontend - Unified Dashboard (Next.js + TypeScript)             │  │
+│  │  1.2: Backend - FastAPI Core (Python)                                  │  │
+│  │  1.3: Infrastructure - VPC, ECS, RDS (Terraform)                     │  │
+│  │  1.4: Data Layer - S3, ChromaDB, Neo4j setup                           │  │
+│  └─────────────────────────────────────────────────────────────────────────┘  │
+│                                      │                                        │
+│  PHASE 2: ML PIPELINE (Weeks 7-10)                                            │
+│  ┌─────────────────────────────────────────────────────────────────────────┐  │
+│  │  2.1: SageMaker - XGBoost training pipeline                             │  │
+│  │  2.2: Feature engineering (technical indicators)                       │  │
+│  │  2.3: SageMaker endpoints for inference                                │  │
+│  │  2.4: Lambda arbitrage detector (<100ms)                               │  │
+│  └─────────────────────────────────────────────────────────────────────────┘  │
+│                                      │                                        │
+│  PHASE 3: AI AGENTS (Weeks 11-14)                                              │
+│  ┌─────────────────────────────────────────────────────────────────────────┐  │
+│  │  3.1: Google ADK - Meta-orchestrator setup                              │  │
+│  │  3.2: CrewAI Bull/Bear/Judge swarm implementation                      │  │
+│  │  3.3: LangSmith observability integration                              │  │
+│  │  3.4: Time-weighted RAG (ChromaDB + Neo4j)                              │  │
+│  └─────────────────────────────────────────────────────────────────────────┘  │
+│                                      │                                        │
+│  PHASE 4: TRADING & PAPER TRADING (Weeks 15-18)                                │
+│  ┌─────────────────────────────────────────────────────────────────────────┐  │
+│  │  4.1: Paper trading engine                                             │  │
+│  │  4.2: Backtesting framework                                          │  │
+│  │  4.3: Risk management (VaR, Monte Carlo)                               │  │
+│  │  4.4: Integration with Polymarket APIs                                │  │
+│  └─────────────────────────────────────────────────────────────────────────┘  │
+│                                      │                                        │
+│  PHASE 5: PRODUCTION HARDENING (Weeks 19-20)                                   │
+│  ┌─────────────────────────────────────────────────────────────────────────┐  │
+│  │  5.1: Security hardening (WAF, Vault)                                  │  │
+│  │  5.2: Performance testing                                              │  │
+│  │  5.3: E2E testing (Playwright)                                         │  │
+│  └─────────────────────────────────────────────────────────────────────────┘  │
+│                                                                               │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
+
+**Note:** GCP, Azure, and Databricks expansions are **deferred post-MVP**. This focused approach minimizes latency and operational complexity.
 
 ### 6.2 Per-Section Testing Strategy
 
@@ -506,38 +699,85 @@ enterprise-mlops-platform/
 # make test SECTION=<section-name>
 
 # Example:
-# make test SECTION=frontend      # Tests all frontend
-# make test SECTION=backend      # Tests all backend
+# make test SECTION=frontend      # Tests frontend
+# make test SECTION=backend      # Tests backend
 # make test SECTION=aws-infra    # Tests AWS infrastructure
 # make test SECTION=contracts    # Runs contract tests
 ```
 
 ---
 
-## 7. Cost Management Strategy
+## 7. Cost Analysis (Scale-to-Zero Design)
 
-### 7.1 Cost Optimization Per Pipeline
+### 7.1 Cost States
 
-| Pipeline | Key Cost Drivers | Optimization Strategy |
-|----------|------------------|----------------------|
-| AWS | SageMaker, ECS, RDS | Spot instances, reserved capacity |
-| GCP | Vertex AI, GKE | Committed use discounts |
-| Azure | Azure ML, AKS | Hybrid benefits |
-| Databricks | DBUs | Auto-scaling, spot instances |
+| State | What Runs | Cost/hr | Notes |
+|-------|----------|---------|-------|
+| **Idle** (logged out) | S3 storage only | $0.023 | Everything stopped |
+| **Active** (working) | Lambda + Aurora + SageMaker (if ML needed) | $0.05-0.20 | Depends on workload |
+| **ML Training** | SageMaker training job | $0.50-2.00 | Only during training |
 
-### 7.2 Cost-Saving Tips Per Section
+### 7.2 Hourly Cost Breakdown (Active State)
 
-**After each pipeline section, we'll include:**
+| Component | Idle | Active (API) | Active (ML Inference) | Active (Full Stack) |
+|-----------|------|--------------|----------------------|---------------------|
+| **Cloudflare Pages** | $0 | $0 | $0 | $0 |
+| **Cloudflare Workers** | $0 | $0.005 | $0.005 | $0.005 |
+| **Lambda (API/Agent)** | $0 | $0.01 | $0.01 | $0.02 |
+| **Aurora Serverless** | $0 | $0.02 | $0.02 | $0.06 |
+| **SageMaker Endpoint** | $0 | $0 | $0.138 | $0.138 |
+| **S3 Storage** | $0.023 | $0.023 | $0.023 | $0.023 |
+| **Cloudflare KV** | $0 | $0 | $0 | $0 |
+| **Neo4j Aura** | $0.05 | $0.05 | $0.05 | $0.05 |
+| **Cloudflare Queues** | $0 | $0.001 | $0.001 | $0.001 |
+| **LangSmith** | $0 | $0.042 | $0.042 | $0.042 |
+| **Total/hr** | **$0.07** | **$0.15** | **$0.30** | **$0.40** |
+
+### 7.3 Scale-to-Zero vs Always-On Comparison
+
+| Scenario | Condition | Monthly Cost |
+|----------|-----------|--------------|
+| **Always-On (old design)** | 24/7 running | $389/month |
+| **Scale-to-Zero (new)** | 8hrs/day × 22 days | **$26/month** |
+| **Scale-to-Zero (new)** | 4hrs/day × 22 days | **$13/month** |
+| **Scale-to-Zero (new)** | Idle (storage only) | **$0.69/month** |
+
+### 7.4 Post-MVP: Adding Other Pipelines
+
+| Pipeline Added | Extra Cost/hr | Notes |
+|----------------|---------------|-------|
+| **GCP** (BigQuery + Cloud Functions) | +$0.12 | On-demand, no always-on |
+| **Azure** (AKS + Azure SQL) | +$0.10 | Spot instances |
+| **Databricks** (interactive cluster) | +$0.40 | DBU + compute |
+
+### 7.5 Cost Optimization Commands
+
+```bash
+# Start everything for a work session (2-3 min warm-up)
+make start-dev
+
+# Stop everything after session
+make stop-dev
+
+# Quick status check
+make status
+
+# Scale Aurora to 0 (manual)
+aws rds modify-db-cluster --db-cluster-identifier fmip-db \
+  --serverlessv2-scaling-configuration MinCapacity=0,MaxCapacity=16
+
+# Stop SageMaker endpoint (saves $0.138/hr)
+aws sagemaker delete-endpoint --endpoint-name inference-ep
 ```
-💰 COST-SAVING CHECKPOINTS
 
-After completing AWS Pipeline:
-□ Turn off SageMaker endpoints when not in use
-□ Stop ECS tasks during off-hours
-□ Delete test RDS instances
-□ Remove unused S3 buckets
-□ Disable CloudWatch detailed monitoring
-```
+### 7.6 Recommendation
+
+**MVP Phase:** Use scale-to-zero AWS-Core only
+- Idle cost: ~$0.69/month (just S3 storage)
+- Active cost: ~$0.15-0.40/hr depending on ML usage
+- 8hr workday × 22 days = ~$26/month
+
+**Post-MVP:** Add GCP/Azure/Databricks only when revenue supports ~$200-400/month additional for each pipeline.
 
 ---
 
@@ -566,7 +806,7 @@ After completing AWS Pipeline:
 
 ---
 
-## 8.3 Shared Infrastructure Services
+## 9. Shared Infrastructure Services
 
 ### Why HashiCorp Vault Over Cloud-Native Secrets Managers?
 
@@ -1090,7 +1330,7 @@ jobs:
 
 ---
 
-## 9. Next Steps
+## 10. Next Steps
 
 1. **Review and approve this PRD**
 2. **Proceed to create Frontend PRD** (01-FRONTEND-PRD.md)

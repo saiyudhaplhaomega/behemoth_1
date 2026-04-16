@@ -1,9 +1,9 @@
 # PRD 07 - Cross-Platform Integration
 
-**Version:** 1.0  
-**Date:** 2026-04-16  
-**Related To:** Master PRD, All Pipeline PRDs  
-**Status:** Draft
+**Version:** 2.0
+**Date:** 2026-04-16
+**Related To:** Master PRD, All Pipeline PRDs
+**Status:** DEFERRED (Post-MVP — depends on all pipelines being active)
 
 ---
 
@@ -45,7 +45,7 @@
 │  │   │                     EVENT MESH (Kafka/MQ)                             │    │  │
 │  │   │                                                                              │    │  │
 │  │   │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  │    │  │
-│  │   │  │ AWS EventBridge│ │ GCP Pub/Sub │  │ Azure Event │  │ DB Spark    │  │    │  │
+│  │   │  │ Cloudflare Queues│ │ GCP Pub/Sub │  │ Azure Event │  │ DB Spark    │  │    │  │
 │  │   │  │              │  │             │  │  Hubs       │  │ Streaming   │  │    │  │
 │  │   │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  │    │  │
 │  │   │         └────────────────┼─────────────────┼────────────────┘         │    │  │
@@ -1205,10 +1205,11 @@ TASKS:
 
 ```
 TASKS:
-□ Configure Event Bridge/Pub/Sub/Hub
+□ Configure Cloudflare Queues as cross-cloud event bus
 □ Define CloudEvents schema
-□ Create event consumers
+□ Create event consumers per pipeline
 □ Test: Cross-platform events
+□ Verify events queue when pipeline is down
 ```
 
 ### Step 6.4: Shared Observability

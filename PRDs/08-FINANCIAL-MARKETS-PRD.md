@@ -1,10 +1,145 @@
 # PRD - Financial Markets Intelligence Platform (FMIP)
 
-**Version:** 1.0
+**Version:** 2.0
 **Date:** 2026-04-16
 **Author:** Saiyudh Mannan
 **Status:** Draft
 **Related To:** Master PRD (00-MASTER-ARCHITECTURE-PRD.md)
+
+---
+
+## 0. Architecture Clarifications (v2.0)
+
+### 0.1 IMPORTANT: MiroFish Explained
+
+**What is MiroFish?**
+
+MiroFish was originally conceptualized as a separate swarm intelligence microservice. After architectural review, **MiroFish functionality is implemented via the CrewAI Bull/Bear/Judge debate swarm** running within the AWS pipeline. This eliminates an external dependency and simplifies the architecture.
+
+| Original Concept | Current Implementation |
+|------------------|-----------------------|
+| MiroFish external microservice | **CrewAI Bull/Bear/Judge swarm** (same functionality) |
+| ghcr.io/666ghj/mirofish:latest | CrewAI agents in ECS Fargate |
+| PostgreSQL + Redis dependencies | Shared ElastiCache + RDS Aurora |
+
+**MiroFish == CrewAI Debate Swarm** in this implementation. The PRD retains "MiroFish" references for conceptual continuity, but actual implementation uses CrewAI.
+
+### 0.2 Single Source of Truth for External Data
+
+**Problem:** In multi-cloud setups, each cloud independently polling CoinGecko/Polymarket would hit rate limits immediately.
+
+**Solution (AWS-Core):** All external API ingestion happens from **AWS only**. No other clouds hit external APIs directly.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                    EXTERNAL DATA INGESTION (AWS-CORE)                             │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                   │
+│  ┌───────────────────────────────────────────────────────────────────────────┐   │
+│  │                     AWS INGESTION LAYER (Lambda + ECS)                      │   │
+│  │                                                                           │   │
+│  │    ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                 │   │
+│  │    │  Lambda      │  │  Lambda       │  │  Lambda       │                 │   │
+│  │    │  (Polymarket │  │  (CoinGecko)  │  │  (Yahoo       │                 │   │
+│  │    │   Gamma API) │  │              │  │   Finance)   │                 │   │
+│  │    └──────┬───────┘  └──────┬───────┘  └──────┬───────┘                 │   │
+│  │           │                  │                  │                          │   │
+│  │           └──────────────────┼──────────────────┘                          │   │
+│  │                              ▼                                            │   │
+│  │                    ┌──────────────┐                                        │   │
+│  │                    │     S3      │  Raw data bucket                        │   │
+│  │                    │  (Raw/)     │  - polymarket/raw/                      │   │
+│  │                    └──────┬──────┘  - coingecko/raw/                        │   │
+│  │                           │             - yahoo/raw/                        │   │
+│  │                           ▼                                              │   │
+│  │                    ┌──────────────┐                                        │   │
+│  │                    │  Glue ETL   │  Transformed data                      │   │
+│  │                    └──────┬──────┘  - polymarket/processed/               │   │
+│  │                           │             - coingecko/processed/               │   │
+│  │                           ▼                                              │   │
+│  │                    ┌──────────────┐                                        │   │
+│  │                    │  S3 (Gold/) │  Enriched, analysis-ready              │   │
+│  │                    └──────────────┘                                        │   │
+│  │                                                                           │   │
+│  └───────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                   │
+│  RATE LIMIT PROTECTION: Lambda poller runs at staggered intervals                 │
+│  CoinGecko: 10-30 calls/minute max (free tier)                                   │
+│  Polymarket Gamma: 60 calls/minute max                                              │
+│                                                                                   │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key Points:**
+- Only **AWS Lambda** polls external APIs (CoinGecko, Polymarket, Yahoo Finance, FRED, NewsAPI)
+- Raw data written to **S3 Raw bucket** immediately
+- **Glue ETL** transforms and writes to S3 Gold bucket
+- **SageMaker, ECS, CrewAI** read from S3 - never call external APIs directly
+- Staggered polling intervals to avoid rate limits
+
+### 0.3 Unified Frontend Architecture
+
+**Decision:** Single unified Next.js frontend, NOT multiple fragmented frontends.
+
+| Original (Multi-Cloud) | Current (AWS-Core) |
+|------------------------|-------------------|
+| Next.js (AWS), Vue.js (GCP), Angular (Azure), Streamlit (Databricks) | **Single Next.js** dashboard |
+| 4 separate codebases | 1 codebase |
+| Fragmented UI/UX | Consistent UX |
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                         UNIFIED FRONTEND (Next.js)                               │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│                         ┌─────────────────────┐                                   │
+│                         │   Next.js App       │                                   │
+│                         │   (Single Repo)     │                                   │
+│                         └─────────┬─────────┘                                   │
+│                                   │                                               │
+│         ┌─────────────────────────┼─────────────────────────┐                     │
+│         │                         │                         │                     │
+│         ▼                         ▼                         ▼                     │
+│  ┌──────────────┐        ┌──────────────┐        ┌──────────────┐            │
+│  │  /signals    │        │  /markets    │        │  /portfolio  │            │
+│  │  Live signals│        │  Polymarket  │        │  Paper trade  │            │
+│  └──────────────┘        └──────────────┘        └──────────────┘            │
+│                                                                                  │
+│  Frontend calls:                                                                 │
+│  - /api/v1/signals       → ECS FastAPI (SageMaker ML inference)                  │
+│  - /api/v1/markets      → ECS FastAPI (Polymarket data from S3)                 │
+│  - /api/v1/paper        → ECS FastAPI (Paper trading engine)                    │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 0.4 Cost Management: Scale-to-Zero
+
+**Critical for solo/small projects - always-on infrastructure is expensive.**
+
+| Component | Always-On Cost (Idle) | Scale-to-Zero Strategy |
+|-----------|----------------------|----------------------|
+| **ECS Fargate** | ~$0.02-0.05/hour | Fargate Spot, schedule scaling |
+| **SageMaker Endpoints** | ~$0.10+/hour | Delete when not in use |
+| **RDS Aurora** | ~$0.02-0.12/hour | Serverless v2 min capacity = 0 |
+| **Lambda** | $0 (only pay per invocation) | N/A - already serverless |
+| **ElastiCache** | ~$0.08/hour | Stop dev cluster, use local Redis |
+
+**Scale-to-Zero Schedule (Dev/Non-Production):**
+```bash
+# Stop ECS services off-hours (dev only)
+aws ecs update-service --cluster mlops-dev-cluster --desired-count 0
+
+# Delete SageMaker endpoints when idle
+aws sagemaker delete-endpoint --endpoint-name inference-ep
+
+# Set RDS Aurora serverless min capacity to 0
+aws rds modify-db-cluster --db-cluster-identifier mlops-db-cluster \
+  --serverlessv2-scaling-configuration MinCapacity=0,MaxCapacity=16
+
+# Start everything before work
+aws ecs update-service --cluster mlops-dev-cluster --desired-count 1
+```
 
 ---
 
@@ -532,51 +667,73 @@ def get_polymarket_sentiment(market_id: str) -> dict:
 
 ---
 
-## 4. MiroFish Swarm Intelligence Integration
+## 4. MiroFish (CrewAI Debate Swarm) Integration
 
 ### 4.1 What is MiroFish?
 
-MiroFish is a **swarm intelligence prediction engine** that uses multi-agent simulations to predict outcomes. It builds a digital twin of the market environment where agents with different "personalities" interact based on market data, news, and historical patterns.
+**MiroFish is now implemented via CrewAI Bull/Bear/Judge debate swarm** - no external microservice required.
 
-### 4.2 Integration Architecture
+The original MiroFish concept described a swarm intelligence prediction engine. In this AWS-core implementation, we achieve the same outcome using CrewAI agents running in ECS Fargate. This simplifies the architecture by eliminating external service dependencies.
+
+### 4.2 Implementation Architecture
 
 ```python
-# MiroFish runs as a microservice, called from your backend
+# CrewAI-based MiroFish Equivalent (runs in ECS Fargate)
 
-MIROFISH_CONFIG = {
-    "base_url": os.getenv("MIROFISH_URL", "http://localhost:5001"),
-    "frontend_url": os.getenv("MIROFISH_FRONTEND", "http://localhost:3000"),
-    "api_version": "v1"
-}
+from crewai import Agent, Task, Crew
 
-def get_mirofish_prediction(question: str, context: dict) -> dict:
-    """
-    Query MiroFish for swarm intelligence prediction.
+bull_agent = Agent(
+    role="Bullish Analyst",
+    goal="Identify bullish signals and upward momentum",
+    backstory="""You are a bullish financial analyst who specializes in
+    identifying upward market movements. You analyze news sentiment,
+    SEC filings for positive developments, and technical breakout patterns.""",
+    tools=[polymarket_tool, news_tool, sec_filings_tool],
+    verbose=True
+)
 
-    Args:
-        question: e.g., "Will BTC reach $100k by end of 2024?"
-        context: Market data, news, Polymarket data to feed agents
+bear_agent = Agent(
+    role="Bearish Analyst",
+    goal="Identify bearish signals and downside risks",
+    backstory="""You are a risk-averse analyst who warns about market
+    downturns. You look for red flags in filings, negative sentiment,
+    macro headwinds, and technical breakdown signals.""",
+    tools=[polymarket_tool, news_tool, sec_filings_tool],
+    verbose=True
+)
 
-    Returns:
-        Prediction with confidence, agent consensus, and reasoning
-    """
-    import requests
+judge_agent = Agent(
+    role="Portfolio Judge",
+    goal="Make final position sizing decisions based on debate",
+    backstory="""You are the final arbiter for portfolio decisions.
+    You weigh the bull and bear arguments, score conviction levels,
+    and determine optimal position sizing with risk-adjusted returns.""",
+    tools=[risk_calculator, portfolio_tool],
+    verbose=True
+)
 
-    response = requests.post(
-        f"{MIROFISH_CONFIG['base_url']}/api/v1/predict",
-        json={
-            "question": question,
-            "context": context,
-            "agent_count": 100,  # Number of simulated agents
-            "simulation_depth": 30,  # Days to simulate
-            "memory_enabled": True
-        },
-        timeout=60
-    )
+# The "debate" - agents work sequentially then the judge decides
+debate_crew = Crew(
+    agents=[bull_agent, bear_agent],
+    tasks=[bull_task, bear_task],
+    crew="debate"
+)
 
-    return response.json()
+result = debate_crew.kickoff()
+```
 
-def get_agent_consensus(prediction: dict) -> dict:
+### 4.3 Why CrewAI Over MiroFish Microservice?
+
+| Aspect | MiroFish External | CrewAI Debate Swarm |
+|--------|-------------------|---------------------|
+| **Infrastructure** | Separate PostgreSQL + Redis + Docker | Shared ElastiCache + RDS Aurora |
+| **Deployment** | ghcr.io/666ghj/mirofish:latest | ECS Fargate (same as backend) |
+| **Cost** | $50-100/month (separate infra) | $0 extra (uses existing ECS) |
+| **Integration** | HTTP API with retries | Direct Python imports |
+| **Latency** | +50-100ms network call | In-process |
+| **Maintenance** | External repo, separate releases | Single codebase |
+
+**Conclusion:** CrewAI provides equivalent swarm intelligence functionality without the operational overhead of a separate microservice.
     """Extract consensus from MiroFish agents"""
     return {
         "bullish_agents": prediction.get("bullish_count", 0),
@@ -619,42 +776,50 @@ def generate_swarm_signal(market_id: str, question: str) -> dict:
     }
 ```
 
-### 4.3 MiroFish Deployment
+### 4.3 CrewAI Deployment (ECS Fargate)
 
-```yaml
-# docker-compose.mirofish.yml
+Since MiroFish is now implemented via CrewAI, deployment is alongside the existing backend in ECS Fargate:
 
-version: '3.8'
-services:
-  mirofish-backend:
-    image: ghcr.io/666ghj/mirofish:latest
-    ports:
-      - "5001:5001"
-    environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - ZEP_API_KEY=${ZEP_API_KEY}
-      - DATABASE_URL=postgresql://mirofish:password@postgres:5432/mirofish
-    depends_on:
-      - postgres
-      - redis
+```python
+# ECS Task Definition for CrewAI Bull/Bear/Judge Swarm
 
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: mirofish
-      POSTGRES_PASSWORD: password
-    volumes:
-      - mirofish-data:/var/lib/postgresql/data
-
-  redis:
-    image: redis:7
-    volumes:
-      - redis-data:/data
-
-volumes:
-  mirofish-data:
-  redis-data:
+crewai_task_definition = {
+    "family": "crewai-debate-swarm",
+    "network_mode": "awsvpc",
+    "requires_compatibilities": ["FARGATE"],
+    "cpu": "2048",
+    "memory": "4096",
+    "execution_role_arn": ecs_execution_role.arn,
+    "task_role_arn": ecs_task_role.arn,
+    "container_definitions": [{
+        "name": "crewai-agent",
+        "image": f"{ecr_repo}/crewai-debate-swarm:latest",
+        "portMappings": [{"container_port": 8082}],
+        "environment": [
+            {"name": "LANGCHAIN_TRACING", "value": "true"},
+            {"name": "LANGCHAIN_ENDPOINT", "value": "https://api.smith.langchain.com"},
+            {"name": "ADK_MODEL", "value": "gemini-2.0-flash"},
+        ],
+        "secrets": [
+            {"name": "GOOGLE_API_KEY", "valueFrom": f"{secret_arn}:api_key::"}
+        ],
+        "log_configuration": {
+            "logDriver": "awslogs",
+            "options": {
+                "awslogs-group": "/ecs/crewai",
+                "awslogs-region": "us-east-1",
+                "awslogs-stream-prefix": "crewai"
+            }
+        }
+    }]
+}
 ```
+
+**Key Benefits:**
+- CrewAI runs in same ECS cluster as FastAPI backend
+- Uses shared RDS Aurora and ElastiCache (no separate PostgreSQL/Redis needed)
+- Scales automatically with Fargate auto-scaling
+- No external Docker image dependency
 
 ---
 

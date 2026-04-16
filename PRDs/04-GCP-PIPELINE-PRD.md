@@ -1,9 +1,9 @@
 # PRD 04 - GCP Pipeline Architecture
 
-**Version:** 1.0  
-**Date:** 2026-04-16  
-**Related To:** Master PRD  
-**Status:** Draft
+**Version:** 2.0
+**Date:** 2026-04-16
+**Related To:** Master PRD
+**Status:** DEFERRED (Post-MVP)
 
 ---
 
@@ -888,8 +888,111 @@ TASKS:
 
 ---
 
-## 7. Next Steps
+## 8. GCP Features (On-Chain + Edge Pipeline)
+
+### 8.1 Assigned Features
+
+GCP serves as the **on-chain analytics** and **edge deployment** pipeline. Assigned features:
+
+| Feature | Components | Data Source |
+|---------|------------|-------------|
+| **On-Chain Crypto Analytics** | BigQuery + Cloud Functions + GCS | Blockchain data |
+| **Crypto-Native DeFi Integration** | Cloud Functions + BigQuery + GCS | DEX APIs, on-chain |
+| **Whale Wallet Tracking** | BigQuery + Cloud Functions + Pub/Sub | Blockchain, Glassnode |
+| **Multi-Region Edge Deployment** | Cloudflare Workers + Cloud CDN + Cloud LB | CDN edge |
+
+### 8.2 Cross-Pipeline Events: GCP Publishes
+
+```python
+# GCP publishes (on-chain signals)
+EVENTS_GCP_PUBLISHES = {
+    "whale.alert": {
+        "description": "Large wallet moved crypto",
+        "payload": {
+            "wallet_address": "str",
+            "action": "buy|sell|transfer",
+            "amount_usd": "float",
+            "asset": "str",
+            "timestamp": "ISO8601"
+        },
+        "consumers": ["AWS", "Azure"]
+    },
+    "onchain.signal": {
+        "description": "On-chain activity signal for trading",
+        "payload": {
+            "signal_type": "str",
+            "asset": "str",
+            "confidence": 0.0-1.0,
+            "source": "str",
+            "timestamp": "ISO8601"
+        },
+        "consumers": ["AWS", "Azure", "Databricks"]
+    },
+    "defi.liquidity_change": {
+        "description": "DeFi pool liquidity significantly changed",
+        "payload": {
+            "pool_address": "str",
+            "protocol": "str",
+            "liquidity_before": "float",
+            "liquidity_after": "float",
+            "change_pct": "float"
+        },
+        "consumers": ["AWS"]
+    }
+}
+```
+
+### 8.3 Cross-Pipeline Events: GCP Consumes
+
+```python
+# GCP subscribes to (consumed from others)
+EVENTS_GCP_CONSUMES = {
+    "signal.generated": {
+        "publisher": "AWS",
+        "description": "Core trading signal"
+    },
+    "signal.copied": {
+        "publisher": "Azure",
+        "description": "Social signal copied by traders"
+    }
+}
+```
+
+### 8.4 Fallback Behavior When Others Are Down
+
+| Pipeline Down | GCP Behavior | User Impact |
+|--------------|-------------|-------------|
+| **AWS down** | Real-time prices show cached from GCS | Crypto trading features limited |
+| **Azure down** | Social features unchanged (independent) | No impact |
+| **Databricks down** | Historical queries use BigQuery directly | No impact |
+
+### 8.5 Standalone Operation
+
+GCP can operate **fully independently** for its core features:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                    GCP STANDALONE OPERATION                                      │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                     │
+│  On-Chain Analytics, Whale Tracking, DeFi Monitoring:                            │
+│  - BigQuery has all historical blockchain data                                   │
+│  - Cloud Functions run on Pub/Sub triggers (independent)                         │
+│  - GCS stores processed analytics data                                            │
+│  - Cloudflare Workers serve edge content independently                           │
+│                                                                                     │
+│  NO EXTERNAL DEPENDENCIES REQUIRED                                                 │
+│                                                                                     │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 9. Next Steps
 
 1. **Review and approve GCP Pipeline PRD**
-2. **Turn off GCP resources**
-3. Move to **Azure Pipeline PRD**
+2. Build GCP core infrastructure (VPC, GKE, Cloud SQL)
+3. Setup BigQuery for on-chain data ingestion
+4. Deploy Cloud Functions for whale tracking
+5. Configure Cloudflare Workers for edge
+6. Integrate Cloudflare Queues for cross-pipeline events

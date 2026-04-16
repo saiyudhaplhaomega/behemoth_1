@@ -1,9 +1,9 @@
 # PRD 06 - Databricks Pipeline Architecture
 
-**Version:** 1.0  
-**Date:** 2026-04-16  
-**Related To:** Master PRD  
-**Status:** Draft
+**Version:** 2.0
+**Date:** 2026-04-16
+**Related To:** Master PRD
+**Status:** DEFERRED (Post-MVP)
 
 ---
 
@@ -947,8 +947,109 @@ TASKS:
 
 ---
 
-## 7. Next Steps
+## 8. Databricks Features (Historical Analysis Pipeline)
+
+### 8.1 Assigned Features
+
+Databricks serves as the **historical analysis** and **quant research** pipeline. Assigned features:
+
+| Feature | Components | Purpose |
+|---------|------------|---------|
+| **Historical Backtesting Engine** | Spark + Delta Lake + MLflow | Parallel backtesting at scale |
+| **Performance Attribution** | Spark SQL + Delta Lake + Databricks SQL | Factor-based performance analysis |
+| **Factor Research Sandbox** | Databricks Notebooks + Delta Lake + GPU | Quant factor discovery |
+| **Paper Trading Historical Analysis** | Delta Lake + Spark ML | Analyze past paper trades |
+
+### 8.2 Cross-Pipeline Events: Databricks Publishes
+
+```python
+# Databricks publishes (historical analysis)
+EVENTS_DATABRICKS_PUBLISHES = {
+    "backtest.complete": {
+        "description": "Backtest run completed",
+        "payload": {
+            "strategy_id": "str",
+            "total_return": "float",
+            "sharpe_ratio": "float",
+            "max_drawdown": "float",
+            "win_rate": "float",
+            "timestamp": "ISO8601"
+        },
+        "consumers": ["Azure", "AWS"]
+    },
+    "factor.research_update": {
+        "description": "New factor research findings",
+        "payload": {
+            "factor_name": "str",
+            "ic_score": "float",
+            "turnover": "float",
+            "data_range": "str",
+            "timestamp": "ISO8601"
+        },
+        "consumers": ["AWS"]
+    }
+}
+```
+
+### 8.3 Cross-Pipeline Events: Databricks Consumes
+
+```python
+# Databricks subscribes to (consumed from others)
+EVENTS_DATABRICKS_CONSUMES = {
+    "signal.generated": {
+        "publisher": "AWS",
+        "description": "Core trading signal"
+    },
+    "signal.copied": {
+        "publisher": "Azure",
+        "description": "Social signal copied"
+    },
+    "whale.alert": {
+        "publisher": "GCP",
+        "description": "On-chain whale alert"
+    },
+    "onchain.signal": {
+        "publisher": "GCP",
+        "description": "On-chain signal"
+    }
+}
+```
+
+### 8.4 Fallback Behavior When Others Are Down
+
+| Pipeline Down | Databricks Behavior | User Impact |
+|--------------|---------------------|-------------|
+| **AWS down** | Historical data still accessible via Delta Lake | Real-time signals unavailable, use cached |
+| **Azure down** | Trade journal entries queue locally | Social features delayed |
+| **GCP down** | On-chain data uses BigQuery directly (or cached) | Blockchain features show stale data |
+
+### 8.5 Standalone Operation
+
+Databricks can operate **fully independently** for its historical features:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                    DATABRICKS STANDALONE OPERATION                                │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                     │
+│  Backtesting, Factor Research, Performance Attribution:                           │
+│  - Delta Lake stores all historical data locally                                  │
+│  - Spark clusters run parallel computations                                        │
+│  - MLflow tracks experiments independently                                        │
+│  - Unity Catalog manages data governance                                          │
+│                                                                                     │
+│  NO EXTERNAL DEPENDENCIES REQUIRED FOR HISTORICAL ANALYSIS                        │
+│                                                                                     │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 9. Next Steps
 
 1. **Review and approve Databricks Pipeline PRD**
-2. **Turn off Databricks resources**
-3. Move to **Cross-Platform PRD**
+2. Setup Databricks workspace (AWS/Azure/GCP)
+3. Configure Unity Catalog for data governance
+4. Create Delta Lake tables for historical data
+5. Deploy MLflow for experiment tracking
+6. Integrate Cloudflare Queues for cross-pipeline events

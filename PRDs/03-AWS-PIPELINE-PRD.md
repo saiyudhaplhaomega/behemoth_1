@@ -1,9 +1,9 @@
 # PRD 03 - AWS Pipeline Architecture
 
-**Version:** 1.0  
-**Date:** 2026-04-16  
-**Related To:** Master PRD, Frontend PRD, Backend PRD  
-**Status:** Draft
+**Version:** 2.0
+**Date:** 2026-04-16
+**Related To:** Master PRD, Frontend PRD, Backend PRD
+**Status:** MVP-FOCUS (Active Development)
 
 ---
 
@@ -11,16 +11,68 @@
 
 ### 1.1 What Are We Building?
 
-This PRD covers the complete AWS pipeline implementation with:
-- Full VPC networking with multiple subnets
-- ECS Fargate for containerized workloads
-- RDS PostgreSQL for data persistence
-- SageMaker for ML training and inference
-- PrivateLink endpoints for secure service access
-- ALB with TLS for load balancing
-- Google ADK agent for AI capabilities
+This PRD covers the AWS pipeline implementation with **scale-to-zero design**:
 
-### 1.2 AWS Architecture Diagram
+| Component | MVP Approach (Scale-to-Zero) | Scaling-Up Option |
+|-----------|------------------------------|-------------------|
+| **Frontend** | Cloudflare Pages (free, global CDN) | Vercel, AWS CloudFront |
+| **API Gateway** | Cloudflare Workers ($0.50/M requests) | API Gateway HTTP API |
+| **Backend** | Lambda (pay per invocation) | ECS Fargate (always-on) |
+| **Database** | Aurora Serverless v2 (min=0) | RDS Aurora provisioned |
+| **Cache** | Cloudflare KV (free tier) | ElastiCache Redis |
+| **ML Inference** | Lambda + S3 | SageMaker endpoints |
+| **Storage** | S3 | S3 + Glacier |
+
+**Key Principle:** Start with scale-to-zero components. Only pay for always-on infrastructure when you have proven revenue justifying it.
+
+### 1.2 Scale-to-Zero Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                         SCALE-TO-ZERO ARCHITECTURE                             │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │                        CLOUDFLARE LAYER (GLOBAL)                        │  │
+│  │                                                                        │  │
+│  │   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐   │  │
+│  │   │   Pages    │  │  Workers   │  │     KV      │  │   Queues    │   │  │
+│  │   │  (CDN)     │  │  (API GW)  │  │  (Cache)   │  │  (Events)  │   │  │
+│  │   │  FREE      │  │$0.50/M req │  │  FREE tier  │  │$0.50/M msg │   │  │
+│  │   └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘   │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                      │                                       │
+│  ┌───────────────────────────────────┼───────────────────────────────┐    │
+│  │                           AWS LAYER (On-Demand)                    │    │
+│  │                                                                     │    │
+│  │   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐               │    │
+│  │   │   Lambda    │  │    S3       │  │   Aurora    │               │    │
+│  │   │  (Compute) │  │  (Storage)  │  │ (Serverless│               │    │
+│  │   │ $0.20/M-inv│  │ $0.023/hr   │  │   Min=0)   │               │    │
+│  │   └─────────────┘  └─────────────┘  └─────────────┘               │    │
+│  │                                                                     │    │
+│  │   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐               │    │
+│  │   │ SageMaker   │  │  Neo4j     │  │  LangSmith  │               │    │
+│  │   │ (stopped)   │  │  Aura      │  │ (on-demand)│               │    │
+│  │   │ $0/hr idle  │  │ $0.05/hr   │  │ $0.042/hr  │               │    │
+│  │   └─────────────┘  └─────────────┘  └─────────────┘               │    │
+│  │                                                                     │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  IDLE COST: ~$0.07/hr (just storage + Neo4j)                                │
+│  ACTIVE COST: ~$0.15-0.40/hr (depends on ML usage)                         │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 1.3 Cost States
+
+| State | Trigger | What's Running | Cost |
+|-------|---------|----------------|------|
+| **Idle** | Logged out / no activity | S3 + Neo4j only | $0.07/hr |
+| **API Active** | API request comes in | Lambda spins up | +$0.01/hr |
+| **DB Active** | First query after idle | Aurora scales from 0 | +$0.02/hr |
+| **ML Active** | ML inference requested | SageMaker endpoint starts | +$0.138/hr |
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -2140,17 +2192,196 @@ TASKS:
 
 ---
 
-## 8. Next Steps
+## 9. AWS Features (Core Pipeline)
+
+### 9.1 Assigned Features
+
+AWS serves as the **core real-time pipeline** and **fallback hub**. Assigned features:
+
+| Feature | Components | Latency |
+|---------|------------|---------|
+| **Real-Time WebSocket Price Feed** | API GW WebSockets + Lambda + ElastiCache | <100ms |
+| **Interactive 3D Market Globe** | Next.js + Three.js + AWS backend | N/A |
+| **SEC Filing / Insider Tracker** | SageMaker NLP + Lambda alerts | Real-time |
+| **Factor Analysis / Smart Beta** | SageMaker factor models + S3 | Batch |
+| **Explainable AI Dashboard** | SageMaker SHAP + CloudFront | N/A |
+| **Automated Rebalancing Engine** | Lambda scheduled + ECS + RDS | Scheduled |
+
+### 9.2 Cross-Pipeline Events: AWS Publishes
+
+AWS publishes these events to Cloudflare Queues for other pipelines to consume:
+
+```python
+# AWS publishes (core signals)
+EVENTS_AWS_PUBLISHES = {
+    "signal.generated": {
+        "description": "New trading signal generated",
+        "payload": {
+            "signal_id": "str",
+            "symbol": "str",
+            "direction": "buy|sell|hold",
+            "confidence": 0.0-1.0,
+            "timestamp": "ISO8601"
+        },
+        "consumers": ["Azure", "GCP", "Databricks"]
+    },
+    "price.update": {
+        "description": "Real-time price update",
+        "payload": {
+            "symbol": "str",
+            "price": "float",
+            "source": "str",
+            "timestamp": "ISO8601"
+        },
+        "consumers": ["Azure", "GCP"]
+    },
+    "arbitrage.opportunity": {
+        "description": "Cross-venue arbitrage detected",
+        "payload": {
+            "symbol": "str",
+            "buy_venue": "str",
+            "sell_venue": "str",
+            "spread_pct": "float",
+            "action": "str"
+        },
+        "consumers": ["Azure"]
+    }
+}
+```
+
+### 9.3 Cross-Pipeline Events: AWS Consumes
+
+AWS subscribes to these events from other pipelines:
+
+```python
+# AWS subscribes to (consumed from others)
+EVENTS_AWS_CONSUMES = {
+    "whale.alert": {
+        "publisher": "GCP",
+        "description": "Large wallet moved crypto"
+    },
+    "onchain.signal": {
+        "publisher": "GCP",
+        "description": "On-chain activity signal"
+    },
+    "defi.liquidity_change": {
+        "publisher": "GCP",
+        "description": "DeFi pool liquidity changed"
+    },
+    "signal.copied": {
+        "publisher": "Azure",
+        "description": "Social signal copied by traders"
+    }
+}
+```
+
+### 9.4 Fallback Behavior When Others Are Down
+
+| Pipeline Down | AWS Behavior | User Impact |
+|--------------|-------------|-------------|
+| **Azure down** | Social signals show cached data from S3 | Limited social features, core trading works |
+| **GCP down** | On-chain data shows cached from S3 | Blockchain features show stale data, crypto prices still work |
+| **Databricks down** | Historical backtests show cached results | Real-time signals work, historical analysis limited |
+
+### 9.5 AWS as Fallback Hub
+
+AWS serves as the fallback source for other pipelines. When Azure/GCP/Databricks are unavailable:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                    AWS FALLBACK MODE                                               │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                     │
+│  IF GCP DOWN:                                                                      │
+│  - AWS Lambda checks S3 for cached on-chain data                                    │
+│  - Returns stale-but-functional blockchain data                                    │
+│  - On-chain signals processed when GCP restores                                    │
+│                                                                                     │
+│  IF AZURE DOWN:                                                                    │
+│  - AWS serves cached social signals from S3                                        │
+│  - Competition leaderboards show last-known rankings                               │
+│  - Trading journal entries queued for later sync                                   │
+│                                                                                     │
+│  IF DATABRICKS DOWN:                                                               │
+│  - AWS serves cached backtest results from S3                                      │
+│  - Factor research shows last completed analysis                                  │
+│  - Historical data queries use Athena fallback                                     │
+│                                                                                     │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 10. Scale-to-Zero Operations
+
+### 10.1 Start/Stop Workflow
+
+```bash
+# Start everything for a work session (2-3 min warm-up)
+make start-dev
+
+# What happens:
+# 1. Aurora Serverless scales from 0 to min 0.5 ACU (~30s)
+# 2. Lambda functions become active (instant)
+# 3. SageMaker endpoint starts (if ML features used, ~2 min)
+# 4. Cloudflare Workers updated with latest code
+
+# Stop everything after session
+make stop-dev
+
+# What happens:
+# 1. SageMaker endpoint deleted (stops billing)
+# 2. Aurora Serverless set to min capacity 0
+# 3. Lambda remain active but no traffic = no billing
+
+# Quick status check
+make status
+# Shows: Aurora capacity, SageMaker status, Lambda invocation count
+```
+
+### 10.2 Cost Optimization Commands
+
+```bash
+# Scale Aurora to 0 (manual)
+aws rds modify-db-cluster --db-cluster-identifier fmip-db \
+  --serverlessv2-scaling-configuration MinCapacity=0,MaxCapacity=16
+
+# Start Aurora manually
+aws rds modify-db-cluster --db-cluster-identifier fmip-db \
+  --serverlessv2-scaling-configuration MinCapacity=0.5,MaxCapacity=8
+
+# Stop SageMaker endpoint (saves $0.138/hr)
+aws sagemaker delete-endpoint --endpoint-name inference-ep
+
+# Start SageMaker endpoint
+aws sagemaker create-endpoint --endpoint-name inference-ep \
+  --endpoint-config-name inference-config
+```
+
+### 10.3 Expected Costs (8hr Workday × 22 Days)
+
+| Usage Pattern | Active Hours | Monthly Cost |
+|---------------|-------------|--------------|
+| **Light** (API only, no ML) | 8hr × 22 = 176hr | $26/mo |
+| **Medium** (API + occasional ML) | 8hr × 22 = 176hr | $50/mo |
+| **Heavy** (daily ML training) | 8hr × 22 = 176hr | $120/mo |
+| **Idle** (no sessions) | Storage only | $0.69/mo |
+
+---
+
+## 11. Next Steps
 
 1. **Review and approve AWS Pipeline PRD**
 2. Move to **Step 3.1: Setup AWS Account & Prerequisites**
-3. Build each section with tests
-4. **Turn off AWS resources** before moving to GCP Pipeline
-5. Proceed to GCP Pipeline PRD
+3. Build with scale-to-zero design from day 1
+4. **Deploy Cloudflare Pages + Workers first** (free tier)
+5. **Deploy Lambda + Aurora Serverless** (pay per use)
+6. **Add SageMaker only when ML features are needed**
+7. Integrate Cloudflare Queues for future cross-pipeline events
 
 ---
 
 **Document Version History:**
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
-| 1.0 | 2026-04-16 | Platform Team | Initial draft |
+| 2.0 | 2026-04-16 | Platform Team | Scale-to-zero design, Cloudflare-first architecture |
