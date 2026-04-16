@@ -1163,7 +1163,7 @@ import os
 
 class MultiProviderLLM:
     """
-    LLM client with MiniMax primary and OpenRouter fallback.
+    LLM client with MiniMax primary, Grok for fast parallel, OpenRouter fallback.
     Automatically switches when rate limited.
     """
 
@@ -1174,6 +1174,15 @@ class MultiProviderLLM:
             base_url="https://api.minimax.chat/v1"
         )
         self.minimax_model = "MiniMax-Text-01"
+
+        # Grok (fast, cheap - xAI)
+        # Perfect for parallel Bull/Bear agents where speed > reasoning depth
+        self.grok = OpenAI(
+            api_key=os.getenv("GROK_API_KEY"),
+            base_url="https://api.x.ai/v1"
+        )
+        self.grok_model = "grok-4o-mini"  # Fast + cheap (~ $0.01/1M tokens)
+        # Also available: "grok-4.1" for better reasoning
 
         # OpenRouter (fallback - free tier)
         self.openrouter = OpenAI(
@@ -1860,32 +1869,37 @@ class MiroFishOptimizer:
 
 ```python
 # Fast model hierarchy
-BULL_BEAR_MODELS = [
-    "anthropic/claude-3-haiku",      # Fastest, ~1-2s (used for Bull/Bear)
-    "meta-llama/llama-3-8b-instruct",  # ~2-3s
+# Grok is fastest & cheapest for parallel Bull/Bear execution
+PARALLEL_MODELS = [
+    ("grok", "grok-4o-mini"),       # Fastest, ~1s, $0.01/1M tokens (PRIMARY)
+    ("grok", "grok-4.1"),           # Better reasoning, ~2s
+    ("openrouter", "anthropic/claude-3-haiku"),  # Fallback #1
+    ("openrouter", "meta-llama/llama-3-8b-instruct"),  # Fallback #2
 ]
 
-JUDGE_MODEL = "google/gemini-pro"    # Best quality for final decision
+# Judge needs quality, use MiniMax or Gemini
+JUDGE_MODEL = ("minimax", "MiniMax-Text-01")  # Primary
+# Fallback: ("openrouter", "google/gemini-pro")
 
 # CrewAI agent definitions with model selection
 bull_agent = Agent(
     role="Bullish Analyst",
     goal="Identify bullish signals quickly",
-    llm=ChatOpenAI(model="anthropic/claude-3-haiku"),  # Fast
+    llm=ChatOpenAI(model="grok-4o-mini", api_key=os.getenv("GROK_API_KEY")),
     verbose=False  # Disable verbose for speed
 )
 
 bear_agent = Agent(
     role="Bearish Analyst",
     goal="Identify bearish signals quickly",
-    llm=ChatOpenAI(model="anthropic/claude-3-haiku"),  # Fast
+    llm=ChatOpenAI(model="grok-4o-mini", api_key=os.getenv("GROK_API_KEY")),
     verbose=False
 )
 
 judge_agent = Agent(
     role="Portfolio Judge",
     goal="Make final position sizing decision",
-    llm=ChatOpenAI(model="google/gemini-pro"),  # Quality for final call
+    llm=ChatOpenAI(model="MiniMax-Text-01"),  # Quality for final call
     verbose=True
 )
 ```
@@ -1906,7 +1920,8 @@ Trade request:
 | Approach | Latency | Compute Cost | Freshness |
 |----------|---------|--------------|-----------|
 | **Cache hit** | ~0ms | $0 | 0-5 min stale |
-| **Parallel debate** | ~12s | Low | Real-time |
+| **Parallel (Grok)** | **~5s** | ~$0.001/debate | Real-time |
+| **Parallel (Haiku)** | ~8s | Free | Real-time |
 | **Sequential (old)** | ~45s | Low | Real-time |
 
 #### Expert #3: The Analyst (Claude + RAG)
@@ -2313,3 +2328,4 @@ def calibrate_confidence(raw_confidence: float, expert: str, regime: str) -> flo
 | 2.0 | 2026-04-16 | Claude | Added Mixture of Experts (MoE) architecture, Paper Trading Tournament, Meta-Learner, Prediction Validation, and Success Metrics sections |
 | 2.1 | 2026-04-17 | Claude | Added Multi-Provider LLM Client (MiniMax + OpenRouter fallback) for rate limit resilience |
 | 2.2 | 2026-04-17 | Claude | Added MiroFish speed optimizations: parallel agents, cached results, fast models, pre-computation |
+| 2.3 | 2026-04-17 | Claude | Added Grok API for parallel Bull/Bear agents - fastest & cheapest option |
