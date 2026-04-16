@@ -1080,7 +1080,234 @@ GET  /api/v1/ml/backtest             → Run backtest
 
 ---
 
+## 12. Arbitrage & Market Microstructure
+
+### 12.1 The Intelligence Arbitrage Framework
+
+Modern markets have inefficiencies that AI can exploit. The economic gap has shifted from **labor arbitrage** (offshoring) to **intelligence arbitrage** (AI + talent + speed).
+
+| Gap Type | Description | Exploitation | FMIP Implementation |
+|----------|-------------|--------------|---------------------|
+| **Speed Gap** | One system updates slower than reality | Latency arbitrage | Real-time data pipelines with <100ms latency |
+| **Reasoning Gap** | Public info but AI interprets faster | Earnings/regulatory parsing | FinBERT + MiniMax agent analysis |
+| **Fragmentation Gap** | Data siloed across venues | Cross-venue synthesis | Polymarket + Yahoo + CoinGecko unified |
+| **Discipline Gap** | Humans suffer fatigue, emotion | Automated execution | Paper trading → bot execution pipeline |
+
+### 12.2 Polymarket-Specific Exploits
+
+**The $313 → $414K Case (Late 2025):**
+A bot exploited the fact that short-duration crypto contracts on Polymarket updated prices slower than spot exchanges. Key success factors:
+- Small initial capital ($313)
+- Identified predictable price update lag
+- Bot automation for speed advantage
+- Single month, 1322x return
+
+**Detection Patterns:**
+
+```python
+class ArbitrageDetector:
+    """Detect arbitrage opportunities across venues"""
+
+    def __init__(self):
+        self.price_history = defaultdict(list)
+
+    def detect_speed_gap(self, polymarket_price: float, spot_price: float,
+                         threshold: float = 0.02) -> dict:
+        """
+        Detect if Polymarket lags behind spot market.
+        threshold: 2% price difference triggers alert
+        """
+        gap = abs(polymarket_price - spot_price) / spot_price
+
+        if gap > threshold:
+            direction = "OVERPRICED" if polymarket_price > spot_price else "UNDERPRICED"
+            return {
+                "opportunity": "speed_gap",
+                "gap_pct": gap * 100,
+                "direction": direction,
+                "action": "SELL" if direction == "OVERPRICED" else "BUY",
+                "expected_edge": gap * 100
+            }
+        return {"opportunity": None}
+
+    def detect_momentum_ divergence(self, asset: str, spot_prices: list,
+                                    polymarket_prices: list) -> dict:
+        """
+        Detect when Polymarket probability diverges from spot momentum.
+        """
+        if len(spot_prices) < 5 or len(polymarket_prices) < 5:
+            return {"opportunity": None}
+
+        spot_momentum = (spot_prices[-1] - spot_prices[0]) / spot_prices[0]
+        pm_momentum = (polymarket_prices[-1] - polymarket_prices[0]) / polymarket_prices[0]
+
+        divergence = abs(spot_momentum - pm_momentum)
+
+        if divergence > 0.1:  # 10% divergence threshold
+            return {
+                "opportunity": "momentum_divergence",
+                "spot_momentum": spot_momentum * 100,
+                "pm_momentum": pm_momentum * 100,
+                "divergence": divergence * 100,
+                "action": "BUY" if spot_momentum > pm_momentum else "SELL",
+                "rationale": "Polymarket underreacting to spot momentum"
+            }
+        return {"opportunity": None}
+
+    def scan_cross_venue_arbitrage(self, venues: dict) -> list:
+        """
+        Scan multiple venues for cross-market arbitrage.
+        venues: {venue_name: price}
+        """
+        prices = {v: p for v, p in venues.items() if p > 0}
+        if len(prices) < 2:
+            return []
+
+        max_price = max(prices.values())
+        min_price = min(prices.values())
+        max_venue = max(prices, key=prices.get)
+        min_venue = min(prices, key=prices.get)
+
+        spread_pct = (max_price - min_price) / min_price * 100
+
+        if spread_pct > 0.5:  # 0.5% minimum profitable spread
+            return [{
+                "opportunity": "cross_venue",
+                "buy_venue": min_venue,
+                "sell_venue": max_venue,
+                "spread_pct": spread_pct,
+                "action": f"BUY {min_venue} @ {min_price}, SELL {max_venue} @ {max_price}"
+            }]
+        return []
+```
+
+### 12.3 Real-Time Arbitrage Pipeline
+
+```python
+class ArbitragePipeline:
+    """Continuous arbitrage opportunity scanning"""
+
+    def __init__(self):
+        self.detector = ArbitrageDetector()
+        self.position_sizer = PositionSizer()
+        self.risk_manager = RiskManager()
+
+    async def scan_opportunities(self):
+        """Main scanning loop - runs every 100ms"""
+        opportunities = []
+
+        # 1. Polymarket vs Spot Crypto
+        crypto_markets = await self.fetch_polymarket_crypto_markets()
+        for market in crypto_markets:
+            spot_price = await self.get_spot_price(market['asset'])
+            pm_price = market['implied_probability'] * spot_price  # Convert to same scale
+
+            speed_gap = self.detector.detect_speed_gap(pm_price, spot_price)
+            if speed_gap['opportunity']:
+                opportunities.append(speed_gap)
+
+        # 2. Cross-venue crypto
+        venues = await self.fetch_all_crypto_venues()
+        cross_venue = self.detector.scan_cross_venue_arbitrage(venues)
+        opportunities.extend(cross_venue)
+
+        # 3. Momentum divergence
+        for market in crypto_markets:
+            momentum = self.detector.detect_momentum_divergence(
+                market['asset'],
+                await self.get_spot_history(market['asset'], period='1h'),
+                await self.get_pm_history(market['id'], period='1h')
+            )
+            if momentum['opportunity']:
+                opportunities.append(momentum)
+
+        return opportunities
+
+    async def execute_opportunity(self, opportunity: dict, capital: float):
+        """Execute arbitrage with position sizing and risk management"""
+        position = self.position_sizer.calculate(
+            opportunity['expected_edge'],
+            capital,
+            max_risk_pct=0.02  # 2% max risk per trade
+        )
+
+        if position['size'] < 1:
+            return {"executed": False, "reason": "Position too small"}
+
+        risk = self.risk_manager.check_risk(position, opportunity)
+        if not risk['approved']:
+            return {"executed": False, "reason": risk['reason']}
+
+        # Execute in paper trading mode
+        return await self.paper_trading.buy(
+            symbol=opportunity.get('asset', opportunity.get('market_id')),
+            quantity=position['size'],
+            price=opportunity.get('price', position['entry_price'])
+        )
+```
+
+### 12.4 Discipline Gap - Automated Execution
+
+Unlike humans, AI doesn't:
+- Miss trades due to fatigue
+- Hold losing positions out of hope
+- Overtrade due to emotion
+- Ignore risk limits
+
+```python
+class AutomatedExecution:
+    """Rules-based execution eliminating human bias"""
+
+    def __init__(self):
+        self.max_daily_trades = 50
+        self.max_position_pct = 0.05  # 5% per position
+        self.max_drawdown_pct = 0.10  # 10% daily drawdown limit
+        self.min_confidence = 0.65
+
+    def should_execute(self, signal: dict, portfolio: dict) -> dict:
+        """Determine if signal should execute based on rules"""
+
+        # Confidence check
+        if signal.get('confidence', 0) < self.min_confidence:
+            return {"execute": False, "reason": f"Confidence {signal['confidence']} < {self.min_confidence}"}
+
+        # Position size check
+        position_value = signal.get('price', 0) * signal.get('size', 0)
+        portfolio_value = portfolio.get('total_value', 1)
+        if position_value / portfolio_value > self.max_position_pct:
+            return {"execute": False, "reason": f"Position {position_value/portfolio_value*100:.1f}% > {self.max_position_pct*100}% max"}
+
+        # Drawdown check
+        if portfolio.get('drawdown_pct', 0) > self.max_drawdown_pct:
+            return {"execute": False, "reason": f"Drawdown {portfolio['drawdown_pct']*100:.1f}% > {self.max_drawdown_pct*100}% limit"}
+
+        # Daily trade limit
+        if portfolio.get('daily_trades', 0) >= self.max_daily_trades:
+            return {"execute": False, "reason": f"Daily trades {portfolio['daily_trades']} >= {self.max_daily_trades} limit"}
+
+        return {"execute": True, "reason": "All checks passed"}
+```
+
+### 12.5 Success Metrics for Arbitrage
+
+| Metric | Target |
+|--------|--------|
+| Speed Gap Detection | < 100ms latency advantage |
+| Spread Capture Rate | > 80% of detected spreads |
+| Win Rate | > 55% on arbitrage signals |
+| Max Drawdown | < 15% per strategy |
+| Daily Signal Generation | 20-50 opportunities/day |
+
+### 12.6 Scalability Path
+
+1. **Phase 1 (Paper):** $10k starting capital, manual approval of signals
+2. **Phase 2 (Semi-auto):** $50k, AI suggests, human approves
+3. **Phase 3 (Automated):** $100k+, full automation with risk limits
+4. **Phase 4 (Multi-venue):** Expand to Binance, Coinbase, Kraken, Polymarket
+5. **Phase 5 (Production):** Real money, MiroFish swarm intelligence added
+
 **Document Version History:**
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-04-16 | Saiyudh | Initial financial markets platform PRD |
+| 1.1 | 2026-04-16 | Claude | Added arbitrage & market microstructure section |
