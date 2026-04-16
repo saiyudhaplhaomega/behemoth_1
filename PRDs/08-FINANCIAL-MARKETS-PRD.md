@@ -1745,6 +1745,7 @@ The Meta-Learner coordinates three expert systems to generate ensemble predictio
 - **Location:** ECS Fargate Spot (always warm, ~$0.024/hr)
 - **Implementation:** CrewAI Bull/Bear/Judge debate swarm
 - **Strengths:** Multi-perspective reasoning, debate synthesis
+- **Speed Optimization:** See Section 13.2.1 for latency reduction techniques
 - **Output:** prediction + confidence + Bull/Bear/Judge reasoning
 
 ```python
@@ -1756,9 +1757,157 @@ The Meta-Learner coordinates three expert systems to generate ensemble predictio
     "bull_argument": "RSI oversold, positive momentum divergence...",
     "bear_argument": "High VIX, resistance at $50k...",
     "judge_reasoning": "Bull conviction 0.65, Bear conviction 0.35...",
-    "debate_duration_seconds": 45
+    "debate_duration_seconds": 12,  # Optimized from 45s
+    "cache_hit": False
 }
 ```
+
+##### 13.2.1 Speed Optimization Techniques
+
+**Problem:** MiroFish debates take 30-60s but trade opportunities last seconds.
+
+**Solutions:**
+
+| Technique | Speed Gain | Tradeoff |
+|-----------|------------|----------|
+| **Pre-compute debates** | 0ms latency | Wasted compute on unused predictions |
+| **Cached results** | 0ms vs 12s | Stale data (5-min cache) |
+| **Parallel Bull + Bear** | 50% faster | Sequential was 45s → parallel is ~20s |
+| **Fast models for Bull/Bear** | 3-5x faster | Haiku/Llama for agents, Gemini for Judge |
+| **Truncated prompts** | 2x faster | Less reasoning context |
+
+```python
+class MiroFishOptimizer:
+    """
+    Optimized MiroFish for fast trade decisions.
+    """
+
+    def __init__(self):
+        self.cache = {}  # market_id -> (prediction, timestamp)
+        self.cache_ttl = 300  # 5 minutes
+        self.use_parallel = True
+
+    def get_prediction(self, market_id: str, question: str) -> dict:
+        """
+        Get prediction with caching and pre-computation.
+        """
+
+        # Check cache first (instant)
+        if market_id in self.cache:
+            cached, timestamp = self.cache[market_id]
+            if time.time() - timestamp < self.cache_ttl:
+                cached["cache_hit"] = True
+                return cached
+
+        # Run optimized debate
+        prediction = self._run_optimized_debate(market_id, question)
+
+        # Cache result
+        self.cache[market_id] = (prediction, time.time())
+
+        return prediction
+
+    def _run_optimized_debate(self, market_id: str, question: str) -> dict:
+        """
+        Optimized debate with parallel agents and fast models.
+        """
+
+        # Pre-fetch context once
+        context = self._fetch_market_context(market_id)
+
+        if self.use_parallel:
+            # Bull and Bear run SIMULTANEOUSLY (huge speedup)
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                bull_future = executor.submit(self._bull_agent, question, context)
+                bear_future = executor.submit(self._bear_agent, question, context)
+
+                bull_result = bull_future.result(timeout=15)  # 15s timeout
+                bear_result = bear_future.result(timeout=15)
+        else:
+            # Fallback to sequential (slower but more reliable)
+            bull_result = self._bull_agent(question, context)
+            bear_result = self._bear_agent(question, context)
+
+        # Judge runs last (critical path)
+        judge_result = self._judge_agent(bull_result, bear_result, context)
+
+        return {
+            "expert": "swarm",
+            "prediction": judge_result["prediction"],
+            "confidence": judge_result["confidence"],
+            "bull_argument": bull_result["argument"],
+            "bear_argument": bear_result["argument"],
+            "judge_reasoning": judge_result["reasoning"],
+            "debate_duration_seconds": judge_result["duration"],
+            "cache_hit": False
+        }
+
+    def precompute_debates(self, market_ids: list):
+        """
+        Pre-run debates for likely markets (background job).
+        Call this every 5 minutes to populate cache.
+        """
+        for market_id in market_ids:
+            question = self._generate_question(market_id)
+            try:
+                prediction = self._run_optimized_debate(market_id, question)
+                self.cache[market_id] = (prediction, time.time())
+            except Exception as e:
+                print(f"Pre-compute failed for {market_id}: {e}")
+```
+
+##### 13.2.2 Model Selection for Speed
+
+```python
+# Fast model hierarchy
+BULL_BEAR_MODELS = [
+    "anthropic/claude-3-haiku",      # Fastest, ~1-2s (used for Bull/Bear)
+    "meta-llama/llama-3-8b-instruct",  # ~2-3s
+]
+
+JUDGE_MODEL = "google/gemini-pro"    # Best quality for final decision
+
+# CrewAI agent definitions with model selection
+bull_agent = Agent(
+    role="Bullish Analyst",
+    goal="Identify bullish signals quickly",
+    llm=ChatOpenAI(model="anthropic/claude-3-haiku"),  # Fast
+    verbose=False  # Disable verbose for speed
+)
+
+bear_agent = Agent(
+    role="Bearish Analyst",
+    goal="Identify bearish signals quickly",
+    llm=ChatOpenAI(model="anthropic/claude-3-haiku"),  # Fast
+    verbose=False
+)
+
+judge_agent = Agent(
+    role="Portfolio Judge",
+    goal="Make final position sizing decision",
+    llm=ChatOpenAI(model="google/gemini-pro"),  # Quality for final call
+    verbose=True
+)
+```
+
+##### 13.2.3 Pre-Computation Schedule
+
+```
+Every 5 minutes (cron job):
+  1. Get list of active markets
+  2. Pre-run debates for top 20 by volume
+  3. Store in cache
+
+Trade request:
+  1. Check cache → HIT: return instantly
+  2. Check cache → MISS: run parallel debate (~12s)
+```
+
+| Approach | Latency | Compute Cost | Freshness |
+|----------|---------|--------------|-----------|
+| **Cache hit** | ~0ms | $0 | 0-5 min stale |
+| **Parallel debate** | ~12s | Low | Real-time |
+| **Sequential (old)** | ~45s | Low | Real-time |
 
 #### Expert #3: The Analyst (Claude + RAG)
 - **Location:** Lambda function with RAG knowledge base
@@ -2163,3 +2312,4 @@ def calibrate_confidence(raw_confidence: float, expert: str, regime: str) -> flo
 | 1.1 | 2026-04-16 | Claude | Added arbitrage & market microstructure section |
 | 2.0 | 2026-04-16 | Claude | Added Mixture of Experts (MoE) architecture, Paper Trading Tournament, Meta-Learner, Prediction Validation, and Success Metrics sections |
 | 2.1 | 2026-04-17 | Claude | Added Multi-Provider LLM Client (MiniMax + OpenRouter fallback) for rate limit resilience |
+| 2.2 | 2026-04-17 | Claude | Added MiroFish speed optimizations: parallel agents, cached results, fast models, pre-computation |
