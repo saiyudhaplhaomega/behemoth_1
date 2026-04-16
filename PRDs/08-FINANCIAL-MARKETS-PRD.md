@@ -1,6 +1,6 @@
 # PRD - Financial Markets Intelligence Platform (FMIP)
 
-**Version:** 2.0
+**Version:** 2.1
 **Date:** 2026-04-16
 **Author:** Saiyudh Mannan
 **Status:** Draft
@@ -916,9 +916,58 @@ class MarketKnowledgeGraph:
 class PaperTradingEngine:
     def __init__(self, initial_capital: float = 100000):
         self.capital = initial_capital
-        self.initial_capital = initial_capital
+        self.deposited = initial_capital  # Track total deposits
+        self.initial_capital = initial_capital  # Starting balance for P&L
         self.positions = {}
         self.trades = []
+
+    def deposit(self, amount: float) -> dict:
+        """Add funds to the paper trading account"""
+        if amount <= 0:
+            return {"success": False, "reason": "Amount must be positive"}
+
+        self.capital += amount
+        self.deposited += amount
+
+        self.trades.append({
+            "timestamp": pd.Timestamp.now(),
+            "action": "DEPOSIT",
+            "amount": amount,
+            "capital_after": self.capital
+        })
+
+        return {
+            "success": True,
+            "capital_after": self.capital,
+            "total_deposited": self.deposited
+        }
+
+    def withdraw(self, amount: float) -> dict:
+        """
+        Withdraw funds from the paper trading account.
+        Bot adjusts to new balance automatically.
+        """
+        if amount <= 0:
+            return {"success": False, "reason": "Amount must be positive"}
+
+        if amount > self.capital:
+            return {"success": False, "reason": "Insufficient capital"}
+
+        self.capital -= amount
+        # Note: We reduce deposited, so P&L is relative to actual net deposits
+
+        self.trades.append({
+            "timestamp": pd.Timestamp.now(),
+            "action": "WITHDRAW",
+            "amount": amount,
+            "capital_after": self.capital
+        })
+
+        return {
+            "success": True,
+            "capital_after": self.capital,
+            "total_deposited": self.deposited
+        }
 
     def buy(self, symbol: str, quantity: int, price: float):
         """Execute a buy order (paper)"""
@@ -980,10 +1029,15 @@ class PaperTradingEngine:
         return self.capital + positions_value
 
     def get_performance(self) -> dict:
-        """Calculate performance metrics"""
+        """
+        Calculate performance metrics.
+        P&L is relative to net deposits (deposits - withdrawals).
+        Bot's available capital adjusts automatically after withdrawals.
+        """
         total_value = self.get_portfolio_value({})  # Use last prices
-        pnl = total_value - self.initial_capital
-        pnl_pct = (pnl / self.initial_capital) * 100
+        net_deposits = self.deposited  # deposits minus withdrawals
+        pnl = total_value - net_deposits
+        pnl_pct = (pnl / net_deposits) * 100 if net_deposits > 0 else 0
 
         winning_trades = [t for t in self.trades if t["action"] == "SELL" and
                           self._get_trade_pnl(t) > 0]
@@ -992,6 +1046,8 @@ class PaperTradingEngine:
 
         return {
             "total_value": total_value,
+            "available_cash": self.capital,
+            "net_deposits": net_deposits,
             "pnl": pnl,
             "pnl_pct": pnl_pct,
             "num_trades": len(self.trades),
@@ -1471,8 +1527,457 @@ class AutomatedExecution:
 4. **Phase 4 (Multi-venue):** Expand to Binance, Coinbase, Kraken, Polymarket
 5. **Phase 5 (Production):** Real money, MiroFish swarm intelligence added
 
+---
+
+## 13. Mixture of Experts (MoE) Architecture
+
+### 13.1 Overview
+
+The Meta-Learner coordinates three expert systems to generate ensemble predictions. Each expert has unique strengths:
+
+| Expert | System | Strengths | Output |
+|--------|--------|-----------|--------|
+| **Expert #1** | Quant (XGBoost/LSTM) | Pattern recognition, fast inference | prediction + confidence |
+| **Expert #2** | Swarm (MiroFish) | Bull/Bear/Judge debate, reasoning | prediction + confidence + reasoning |
+| **Expert #3** | Analyst (Claude + RAG) | Historical patterns, lessons learned | prediction + confidence + reasoning |
+
+### 13.2 Three Expert Systems
+
+#### Expert #1: The Quant (XGBoost/LSTM)
+- **Location:** SageMaker endpoints
+- **Strengths:** Historical pattern recognition, technical indicators
+- **Output:** prediction (YES/NO) + confidence (0.0-1.0)
+- **Training:** On historical price data, technical indicators, Polymarket data
+
+```python
+# Quant prediction output
+{
+    "expert": "quant",
+    "prediction": "YES",  # or "NO"
+    "confidence": 0.72,
+    "model_version": "xgboost-v2.1",
+    "features_used": ["rsi", "macd", "bollinger", "volume"]
+}
+```
+
+#### Expert #2: The Swarm (MiroFish on ECS Fargate)
+- **Location:** ECS Fargate Spot (always warm, ~$0.024/hr)
+- **Implementation:** CrewAI Bull/Bear/Judge debate swarm
+- **Strengths:** Multi-perspective reasoning, debate synthesis
+- **Output:** prediction + confidence + Bull/Bear/Judge reasoning
+
+```python
+# Swarm prediction output
+{
+    "expert": "swarm",
+    "prediction": "YES",
+    "confidence": 0.68,
+    "bull_argument": "RSI oversold, positive momentum divergence...",
+    "bear_argument": "High VIX, resistance at $50k...",
+    "judge_reasoning": "Bull conviction 0.65, Bear conviction 0.35...",
+    "debate_duration_seconds": 45
+}
+```
+
+#### Expert #3: The Analyst (Claude + RAG)
+- **Location:** Lambda function with RAG knowledge base
+- **Strengths:** Historical lessons, document context, strategy retrieval
+- **Output:** prediction + confidence + reasoning from RAG
+
+```python
+# Analyst prediction output
+{
+    "expert": "analyst",
+    "prediction": "YES",
+    "confidence": 0.75,
+    "reasoning": "Similar to 2024-Q3 pattern where...",
+    "relevant_docs": ["lesson-2024-Q3.md", "strategy-breakout.md"],
+    "rag_context_used": True
+}
+```
+
+### 13.3 Market Regime Classification
+
+Market regime affects which expert to trust:
+
+| Regime | Detection Method | Default Weights |
+|--------|-----------------|-----------------|
+| **low_vol** | VIX < 20 | Quant 60%, Swarm 30%, Analyst 10% |
+| **high_vol** | VIX > 30 | Quant 20%, Swarm 30%, Analyst 50% |
+| **news_event** | Breaking news API | Swarm 60%, Analyst 30%, Quant 10% |
+| **earnings** | Earnings calendar | Quant 50%, Analyst 30%, Swarm 20% |
+
+```python
+def classify_market_regime(market_id: str) -> str:
+    """Classify current market regime"""
+    vix = get_vix()
+    news = get_recent_news_count()
+    earnings = is_earnings_week(market_id)
+
+    if earnings:
+        return "earnings"
+    elif news > 10:  # Breaking news threshold
+        return "news_event"
+    elif vix > 30:
+        return "high_vol"
+    elif vix < 20:
+        return "low_vol"
+    else:
+        return "normal"
+```
+
+### 13.4 Dynamic Weighting
+
+Expert weights are adjusted based on historical accuracy in each regime:
+
+```python
+def calculate_expert_weight(expert: str, regime: str, historical_accuracy: dict) -> float:
+    """
+    Calculate dynamic weight based on regime and historical accuracy.
+    """
+    base_weights = {
+        'low_vol': {'quant': 0.6, 'swarm': 0.3, 'analyst': 0.1},
+        'high_vol': {'quant': 0.2, 'swarm': 0.3, 'analyst': 0.5},
+        'news_event': {'quant': 0.1, 'swarm': 0.6, 'analyst': 0.3},
+        'earnings': {'quant': 0.5, 'swarm': 0.2, 'analyst': 0.3},
+    }
+
+    base = base_weights.get(regime, {}).get(expert, 0.33)
+    accuracy = historical_accuracy.get(expert, {}).get(regime, 0.5)
+
+    # Weight = base_weight * accuracy_factor
+    return base * accuracy
+
+def weighted_vote(predictions: list, weights: dict) -> dict:
+    """Aggregate expert predictions using dynamic weights"""
+    yes_votes = 0
+    no_votes = 0
+    total_weight = 0
+
+    for pred in predictions:
+        expert = pred['expert']
+        weight = weights.get(expert, 0.33)
+
+        if pred['prediction'] == 'YES':
+            yes_votes += weight * pred['confidence']
+        else:
+            no_votes += weight * pred['confidence']
+
+        total_weight += weight
+
+    if total_weight == 0:
+        return {"prediction": "NO", "confidence": 0.5}
+
+    yes_pct = yes_votes / total_weight
+    no_pct = no_votes / total_weight
+
+    return {
+        "prediction": "YES" if yes_pct > no_pct else "NO",
+        "confidence": max(yes_pct, no_pct),
+        "yes_votes_pct": yes_pct,
+        "no_votes_pct": no_pct
+    }
+```
+
+### 13.5 Meta-Learner Lambda Function
+
+```python
+class MetaLearner:
+    """
+    Orchestrates the Mixture of Experts prediction pipeline.
+    """
+
+    async def predict(self, market_id: str, question: str) -> dict:
+        # 1. Classify market regime
+        regime = self.classify_market_regime(market_id)
+
+        # 2. Get historical accuracy per expert per regime
+        accuracy = self.get_historical_accuracy(regime)
+
+        # 3. Invoke all experts in parallel (30s timeout each)
+        expert_predictions = await asyncio.gather(
+            self.invoke_quant(market_id),
+            self.invoke_swarm(question),
+            self.invoke_analyst(market_id, question),
+            return_exceptions=True
+        )
+
+        # 4. Filter out failed experts
+        valid_predictions = [p for p in expert_predictions if not isinstance(p, Exception)]
+
+        # 5. Calculate dynamic weights
+        weights = {
+            'quant': calculate_expert_weight('quant', regime, accuracy),
+            'swarm': calculate_expert_weight('swarm', regime, accuracy),
+            'analyst': calculate_expert_weight('analyst', regime, accuracy),
+        }
+
+        # 6. Weighted vote aggregation
+        final_prediction = self.weighted_vote(valid_predictions, weights)
+        final_prediction['regime'] = regime
+        final_prediction['expert_predictions'] = valid_predictions
+
+        # 7. Log to PredictionLog for learning
+        self.log_prediction(market_id, question, valid_predictions, final_prediction, regime)
+
+        return final_prediction
+```
+
+---
+
+## 14. Paper Trading Tournament
+
+### 14.1 Overview
+
+Three virtual portfolios run side-by-side to compare expert performance:
+
+| Portfolio | Starting Capital | Strategy | Expert |
+|-----------|-----------------|----------|--------|
+| **Portfolio A** | $100,000 | 100% Quant | Expert #1 (XGBoost/LSTM) |
+| **Portfolio B** | $100,000 | 100% Swarm | Expert #2 (MiroFish) |
+| **Portfolio C** | $100,000 | 100% Analyst | Expert #3 (Claude+RAG) |
+
+### 14.2 Portfolio Implementation
+
+```python
+class ExpertPortfolio:
+    """Paper trading portfolio assigned to a specific expert"""
+
+    def __init__(self, name: str, expert: str, initial_capital: float = 100000):
+        self.name = name
+        self.expert = expert
+        self.capital = initial_capital
+        self.deposited = initial_capital
+        self.initial_capital = initial_capital
+        self.positions = {}
+        self.trades = []
+
+    def deposit(self, amount: float) -> dict:
+        """Add funds to the portfolio"""
+        if amount <= 0:
+            return {"success": False, "reason": "Amount must be positive"}
+
+        self.capital += amount
+        self.deposited += amount
+
+        return {
+            "success": True,
+            "capital_after": self.capital,
+            "total_deposited": self.deposited
+        }
+
+    def withdraw(self, amount: float) -> dict:
+        """Withdraw funds - bot adjusts position sizing automatically"""
+        if amount <= 0:
+            return {"success": False, "reason": "Amount must be positive"}
+
+        if amount > self.capital:
+            return {"success": False, "reason": "Insufficient capital"}
+
+        self.capital -= amount
+        self.deposited -= amount  # Reduce net deposits
+
+        return {
+            "success": True,
+            "capital_after": self.capital,
+            "total_deposited": self.deposited
+        }
+
+    def execute_signal(self, signal: dict, current_price: float) -> dict:
+        """
+        Execute trade based on expert's signal.
+        signal: {prediction, confidence, expert}
+        """
+        if signal['confidence'] < 0.6:  # Minimum confidence threshold
+            return {"executed": False, "reason": "Confidence below threshold"}
+
+        prediction = signal['prediction']
+        position_size = self.calculate_position_size(signal, current_price)
+
+        if prediction == 'YES':
+            return self.buy(position_size, current_price)
+        elif prediction == 'NO':
+            return self.sell(position_size, current_price)
+
+        return {"executed": False, "reason": "Invalid prediction"}
+
+    def calculate_position_size(self, signal: dict, price: float) -> int:
+        """Calculate position size based on confidence and capital"""
+        max_position_pct = 0.05  # 5% max position
+        confidence_factor = signal['confidence']  # 0-1
+
+        max_position_value = self.capital * max_position_pct
+        desired_value = max_position_value * confidence_factor
+
+        return max(1, int(desired_value / price))
+```
+
+### 14.3 Tournament Tracking
+
+```python
+class TournamentTracker:
+    """Track performance across all expert portfolios"""
+
+    def __init__(self):
+        self.portfolios = {
+            'quant': ExpertPortfolio("Quant A", "quant"),
+            'swarm': ExpertPortfolio("Swarm B", "swarm"),
+            'analyst': ExpertPortfolio("Analyst C", "analyst")
+        }
+
+    def get_leaderboard(self) -> list:
+        """Get ranked performance of all portfolios"""
+        results = []
+        for name, portfolio in self.portfolios.items():
+            current_value = portfolio.get_total_value()
+            pnl = current_value - portfolio.initial_capital
+            pnl_pct = (pnl / portfolio.initial_capital) * 100
+
+            results.append({
+                "portfolio": name,
+                "current_value": current_value,
+                "pnl": pnl,
+                "pnl_pct": pnl_pct,
+                "num_trades": len(portfolio.trades),
+                "win_rate": portfolio.get_win_rate()
+            })
+
+        return sorted(results, key=lambda x: x['pnl_pct'], reverse=True)
+```
+
+---
+
+## 15. Prediction Validation (Before Real Money)
+
+### 15.1 Validation Loop
+
+```
+Learn (RAG) → Predict (Simulated) → Track (Paper) → Validate (Accuracy) → Real Trades
+```
+
+### 15.2 Graduated Risk Ladder
+
+| Tier | Condition | Daily Limit | Accuracy Required |
+|------|-----------|-------------|-------------------|
+| **Paper** | Always | $0 | N/A |
+| **Tier 1** | 55%+ accuracy | $10 | 3 months track record |
+| **Tier 2** | 60%+ accuracy | $50 | 6 months + profitable |
+| **Tier 3** | 65%+ accuracy | $100 | 12 months + consistent |
+
+### 15.3 Circuit Breaker Rules
+
+| Rule | Limit | Action |
+|------|-------|--------|
+| Daily Loss | -$20 | Pause trading for 24hr |
+| Weekly Loss | -$50 | Pause until reviewed |
+| Accuracy Drop | -5% from baseline | Pause, retrain |
+
+### 15.4 Prediction Tracking Database
+
+```python
+# PredictionLog schema
+CREATE TABLE prediction_log (
+    id UUID PRIMARY KEY,
+    market_id VARCHAR,
+    question TEXT,
+    prediction VARCHAR,  -- YES/NO
+    confidence FLOAT,    -- 0.0-1.0
+    regime VARCHAR,      -- low_vol, high_vol, news_event, earnings
+    expert VARCHAR,       -- quant, swarm, analyst
+    predicted_at TIMESTAMP,
+    outcome VARCHAR,     -- YES/NO/UNKNOWN
+    resolved_at TIMESTAMP,
+    correct BOOLEAN,
+    profit FLOAT
+);
+
+# ExpertPerformance per-regime tracking
+CREATE TABLE expert_performance (
+    expert VARCHAR,
+    regime VARCHAR,
+    total_predictions INT,
+    correct_predictions INT,
+    accuracy FLOAT,
+    last_updated TIMESTAMP,
+    PRIMARY KEY (expert, regime)
+);
+```
+
+### 15.5 Confidence Calibration
+
+Most AI agents are overconfident. Calibrate:
+
+```
+Raw Model → Calibrated Probability
+95% → 75% (model tends to overshoot)
+80% → 78% (well calibrated)
+65% → 62% (well calibrated)
+```
+
+```python
+def calibrate_confidence(raw_confidence: float, expert: str, regime: str) -> float:
+    """
+    Calibrate confidence based on historical accuracy.
+    """
+    # Get historical calibration data
+    calibration = get_calibration_data(expert, regime)
+
+    if raw_confidence >= 0.9:
+        return calibration.get('high', 0.75)
+    elif raw_confidence >= 0.8:
+        return calibration.get('medium_high', 0.78)
+    elif raw_confidence >= 0.7:
+        return calibration.get('medium', 0.72)
+    elif raw_confidence >= 0.6:
+        return calibration.get('medium_low', 0.65)
+    else:
+        return calibration.get('low', 0.55)
+```
+
+---
+
+## 16. Success Metrics
+
+### 16.1 Individual Expert Metrics
+
+| Expert | Accuracy Target | Confidence Threshold |
+|--------|-----------------|---------------------|
+| Quant | 55-60% | 0.65 |
+| Swarm (MiroFish) | 58-65% | 0.60 |
+| Analyst (Claude+RAG) | 55-62% | 0.65 |
+
+### 16.2 Ensemble (Meta-Learner) Metrics
+
+| Metric | Target | Notes |
+|--------|--------|-------|
+| **Ensemble Accuracy** | 65-70% | Should outperform individual experts |
+| **Calibration** | Brier Score < 0.2 | Confidence matches actual accuracy |
+| **Regime Adaptation** | >5% improvement | vs fixed weights |
+| **Learning Rate** | Improving over time | 3-month rolling accuracy trend |
+
+### 16.3 Paper Trading Tournament Metrics
+
+| Metric | Portfolio A (Quant) | Portfolio B (Swarm) | Portfolio C (Analyst) |
+|--------|---------------------|---------------------|-----------------------|
+| Total P&L | Target: >0% | Target: >0% | Target: >0% |
+| Sharpe Ratio | Target: >1.0 | Target: >1.0 | Target: >1.0 |
+| Max Drawdown | <15% | <15% | <15% |
+| Win Rate | >55% | >55% | >55% |
+| Total Trades | Count | Count | Count |
+
+### 16.4 Meta-Learner vs Individual Comparison
+
+| Metric | Best Individual Expert | Meta-Learner Ensemble | Improvement |
+|--------|------------------------|----------------------|-------------|
+| Accuracy | 62% | 67% | +5% |
+| Calibration | 0.25 Brier | 0.18 Brier | -28% |
+| Consistency | 0.8 std dev | 0.4 std dev | -50% |
+
+---
+
 **Document Version History:**
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-04-16 | Saiyudh | Initial financial markets platform PRD |
 | 1.1 | 2026-04-16 | Claude | Added arbitrage & market microstructure section |
+| 2.0 | 2026-04-16 | Claude | Added Mixture of Experts (MoE) architecture, Paper Trading Tournament, Meta-Learner, Prediction Validation, and Success Metrics sections |

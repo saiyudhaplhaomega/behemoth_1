@@ -1,6 +1,6 @@
 # MASTER PRD - Financial Markets Intelligence Platform (FMIP)
 
-**Version:** 2.0
+**Version:** 2.1
 **Date:** 2026-04-16
 **Author:** Saiyudh Mannan
 **Status:** Draft
@@ -172,11 +172,212 @@ An AI-powered financial markets prediction platform that combines multi-cloud ML
 | Cache | Cloudflare KV | ✅ Free tier: 100K reads/day |
 | IaC | Terraform | N/A |
 
-**Note:** GCP, Azure, and Databricks pipelines are **deferred** until post-MVP. Focus entirely on AWS for speed-to-market and operational simplicity.
+**Note:** GCP, Azure, and Databricks pipelines are **ON-DEMAND** (build when needed, stop when done = $0 cost). AWS remains the always-available core pipeline.
 
-## 4. Agent System Architecture
+## 4. Mixture of Experts (MoE) Architecture
 
-### 4.1 Hybrid Quant + Agent Architecture
+### 4.1 Overview
+
+The Meta-Learner coordinates three expert systems to generate ensemble predictions:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                    MIXTURE OF EXPERTS (MoE) ARCHITECTURE                          │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                     │
+│  ┌─────────────────────────────────────────────────────────────────────────────┐   │
+│  │                        META-LEARNER (Dynamic Voting)                          │   │
+│  │                                                                               │   │
+│  │  Before any trade:                                                           │   │
+│  │    1. Asks each expert for prediction                                        │   │
+│  │    2. Checks current market regime (low_vol, high_vol, news, earnings)       │   │
+│  │    3. Looks up historical accuracy per expert per regime                    │   │
+│  │    4. Outputs: weighted vote → final prediction + confidence                 │   │
+│  │                                                                               │   │
+│  └─────────────────────────────────────────────────────────────────────────────┘   │
+│                                      │                                              │
+│         ┌────────────────────────────┼────────────────────────────┐                │
+│         │                            │                            │                │
+│         ▼                            ▼                            ▼                │
+│  ┌──────────────────┐      ┌──────────────────┐      ┌──────────────────┐         │
+│  │  EXPERT #1       │      │  EXPERT #2       │      │  EXPERT #3       │         │
+│  │  The Quant       │      │  The Swarm       │      │  The Analyst    │         │
+│  │                  │      │                  │      │                  │         │
+│  │  XGBoost/LSTM    │      │  MiroFish        │      │  Claude + RAG   │         │
+│  │  (SageMaker)     │      │  (ECS Fargate)   │      │  (Lambda)        │         │
+│  │                  │      │                  │      │                  │         │
+│  │  Output:         │      │  Output:         │      │  Output:         │         │
+│  │  prediction      │      │  prediction      │      │  prediction      │         │
+│  │  + confidence    │      │  + confidence    │      │  + confidence    │         │
+│  │  (0.0-1.0)       │      │  + reasoning     │      │  + reasoning     │         │
+│  └──────────────────┘      └──────────────────┘      └──────────────────┘         │
+│                                                                                     │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 4.2 Expert Systems
+
+#### Expert #1: The Quant (XGBoost/LSTM)
+- **Location:** SageMaker endpoints
+- **Strengths:** Pattern recognition on historical data, fast inference
+- **Output:** prediction + confidence (0.0-1.0)
+- **Cost:** ~$0.138/hr when running (stopped when idle)
+
+#### Expert #2: The Swarm (MiroFish on ECS Fargate)
+- **Location:** ECS Fargate Spot (always warm, ~$0.024/hr)
+- **Strengths:** Bull/Bear/Judge debate synthesis, reasoning
+- **Output:** prediction + confidence + reasoning (Bull/Bear arguments)
+- **Cost:** ~$0.024/hr (Fargate Spot - always warm, never cold starts)
+
+#### Expert #3: The Analyst (Claude + RAG)
+- **Location:** Lambda function with RAG knowledge base
+- **Strengths:** Historical patterns, lessons learned, document reasoning
+- **Output:** prediction + confidence + reasoning (contextual)
+- **Cost:** Pay-per-invocation via Lambda + Claude API
+
+### 4.3 Market Regime Classification
+
+Market regime affects which expert to trust:
+
+| Regime | Detection | Trust Expert |
+|--------|-----------|--------------|
+| **low_vol** | VIX < 20 | Quant (60%), Swarm (30%), Analyst (10%) |
+| **high_vol** | VIX > 30 | Analyst (50%), Swarm (30%), Quant (20%) |
+| **news_event** | Breaking news detected | Swarm (60%), Analyst (30%), Quant (10%) |
+| **earnings** | Earnings calendar | Quant (50%), Analyst (30%), Swarm (20%) |
+
+### 4.4 Dynamic Weighting Formula
+
+```python
+def calculate_expert_weight(expert: str, regime: str, historical_accuracy: dict) -> float:
+    """
+    Calculate dynamic weight for each expert based on regime and historical accuracy.
+    """
+    base_weights = {
+        'low_vol': {'quant': 0.6, 'swarm': 0.3, 'analyst': 0.1},
+        'high_vol': {'quant': 0.2, 'swarm': 0.3, 'analyst': 0.5},
+        'news_event': {'quant': 0.1, 'swarm': 0.6, 'analyst': 0.3},
+        'earnings': {'quant': 0.5, 'swarm': 0.2, 'analyst': 0.3},
+    }
+
+    base = base_weights.get(regime, {}).get(expert, 0.33)
+    accuracy = historical_accuracy.get(expert, {}).get(regime, 0.5)
+
+    # Weight = base_weight * accuracy_factor
+    # Accuracy factor rewards experts who perform well in this regime
+    return base * accuracy
+```
+
+### 4.5 Meta-Learner Lambda Function
+
+```python
+class MetaLearner:
+    """
+    Orchestrates the Mixture of Experts prediction pipeline.
+    """
+
+    def predict(self, market_id: str, question: str) -> dict:
+        # 1. Classify market regime
+        regime = self.classify_regime(market_id)
+
+        # 2. Get historical accuracy per expert per regime
+        accuracy = self.get_historical_accuracy(regime)
+
+        # 3. Invoke all experts in parallel (30s timeout each)
+        expert_predictions = asyncio.gather(
+            self.invoke_quant(market_id),
+            self.invoke_swarm(question),
+            self.invoke_analyst(market_id, question),
+            return_exceptions=True
+        )
+
+        # 4. Calculate dynamic weights
+        weights = {
+            'quant': calculate_expert_weight('quant', regime, accuracy),
+            'swarm': calculate_expert_weight('swarm', regime, accuracy),
+            'analyst': calculate_expert_weight('analyst', regime, accuracy),
+        }
+
+        # 5. Weighted vote aggregation
+        final_prediction = self.weighted_vote(expert_predictions, weights)
+
+        # 6. Log to PredictionLog for learning
+        self.log_prediction(market_id, question, expert_predictions, final_prediction, regime)
+
+        return final_prediction
+```
+
+### 4.6 Expert → Meta-Learner Integration
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                    EXPERT → META-LEARNER INTEGRATION FLOW                          │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                     │
+│  Lambda (Meta-Learner)                                                             │
+│       │                                                                             │
+│       ├──► SageMaker (Quant) ──────────► XGBoost/LSTM prediction                    │
+│       │                                      │                                        │
+│       ├──► ECS Fargate (Swarm) ──────────► Bull/Bear/Judge debate                  │
+│       │                                      │                                        │
+│       ├──► Lambda+RAG (Analyst) ─────────► Claude + RAG reasoning                  │
+│       │                                      │                                        │
+│       ▼                                                                             │
+│  Weighted Vote Aggregation                                                         │
+│       │                                                                             │
+│       ▼                                                                             │
+│  PredictionLog (Aurora)                                                            │
+│       │                                                                             │
+│       ▼                                                                             │
+│  ExpertPerformance Table (per-regime accuracy tracking)                           │
+│                                                                                     │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 4.7 ECS Fargate Spot for MiroFish (Always Warm)
+
+**Why Fargate Spot over Lambda for MiroFish:**
+- **Lambda cost spikes:** 30-60s debates × frequent calls = unpredictable high costs
+- **Fargate Spot:** ~$0.024/hr always warm, no cold starts, predictable cost
+- **Cold start:** 0ms (always warm) vs Lambda's 1-5s
+
+```python
+# ECS Fargate Spot Task Definition
+task_definition = {
+    "family": "mirofish-debate-swarm",
+    "platform_version": "LATEST",
+    "requires_compatibilities": ["FARGATE"],
+    "runtime_platform": {
+        "operating_system_family": "LINUX",
+        "cpu_architecture": "X86_64"
+    },
+    "cpu": "2048",  # 2 vCPU
+    "memory": "4096",  # 4 GB
+    "execution_role_arn": ecs_execution_role.arn,
+    "task_role_arn": ecs_task_role.arn,
+    # Fargate Spot capacity provider for cost savings
+    "capacity_provider_strategy": [
+        {
+            "capacity_provider": "FARGATE_SPOT",
+            "base": 1,  # Maintain 1 always-warm task
+            "weight": 100
+        }
+    ]
+}
+```
+
+### 4.8 Success Metrics
+
+| Metric | Individual Expert | Ensemble (Meta-Learner) |
+|--------|-------------------|------------------------|
+| Prediction Accuracy | 55-60% | 65-70% target |
+| Confidence Calibration | Needs calibration | Calibrated via validation |
+| Regimes Tracked | N/A | 4 regimes per expert |
+| Learning | Per-expert only | Cross-expert via Meta-Learner |
+
+## 5. Agent System Architecture
+
+### 5.1 Hybrid Quant + Agent Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
@@ -226,7 +427,7 @@ An AI-powered financial markets prediction platform that combines multi-cloud ML
 └─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 4.2 Google ADK Meta-Orchestrator
+### 5.2 Google ADK Meta-Orchestrator
 
 The **Google ADK** serves as the top-level meta-orchestrator that:
 
@@ -254,7 +455,7 @@ The **Google ADK** serves as the top-level meta-orchestrator that:
 └─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 4.3 Lambda Functions (Latency-Critical Paths)
+### 5.3 Lambda Functions (Latency-Critical Paths)
 
 | Lambda | Latency Target | Purpose | LLM? |
 |--------|---------------|---------|------|
@@ -265,7 +466,7 @@ The **Google ADK** serves as the top-level meta-orchestrator that:
 
 **Critical Rule:** Lambda functions in the hot path contain **NO LLM calls**. They are purely programmatic calculations.
 
-### 4.4 Cross-Pipeline Resilience Architecture
+### 5.4 Cross-Pipeline Resilience Architecture
 
 Each pipeline operates **independently** but shares data via **async events**. If one pipeline goes down, others continue operating.
 
@@ -469,9 +670,9 @@ class PipelineClient {
 
 ---
 
-## 5. Repository Structure
+## 6. Repository Structure
 
-### 5.1 Monorepo Architecture
+### 6.1 Monorepo Architecture
 
 ```
 enterprise-mlops-platform/
@@ -621,7 +822,7 @@ enterprise-mlops-platform/
         └── grafana/
 ```
 
-### 5.2 Why Separate Frontend and Backend Repos?
+### 6.2 Why Separate Frontend and Backend Repos?
 
 **Q: Why not a single repository for frontend + backend?**
 
@@ -638,7 +839,7 @@ enterprise-mlops-platform/
 
 ---
 
-## 5. Development Roadmap (AWS-Core Focus)
+## 7. Development Roadmap (AWS-Core Focus)
 
 ### 5.1 Phased Implementation
 
@@ -692,7 +893,7 @@ enterprise-mlops-platform/
 
 **Note:** GCP, Azure, and Databricks expansions are **deferred post-MVP**. This focused approach minimizes latency and operational complexity.
 
-### 6.2 Per-Section Testing Strategy
+### 7.2 Per-Section Testing Strategy
 
 ```makefile
 # After each section, run:
@@ -707,7 +908,7 @@ enterprise-mlops-platform/
 
 ---
 
-## 7. Cost Analysis (Scale-to-Zero Design)
+## 8. Cost Analysis (Scale-to-Zero Design)
 
 ### 7.1 Cost States
 
@@ -781,7 +982,7 @@ aws sagemaker delete-endpoint --endpoint-name inference-ep
 
 ---
 
-## 8. Success Metrics
+## 9. Success Metrics
 
 ### 8.1 Technical Metrics
 
@@ -806,7 +1007,7 @@ aws sagemaker delete-endpoint --endpoint-name inference-ep
 
 ---
 
-## 9. Shared Infrastructure Services
+## 10. Shared Infrastructure Services
 
 ### Why HashiCorp Vault Over Cloud-Native Secrets Managers?
 
@@ -993,7 +1194,7 @@ class AgentQuery(BaseModel):
 
 ---
 
-### 8.4 A/B Testing for Model Selection
+### 9.4 A/B Testing for Model Selection
 
 **Q: How do we objectively compare models across clouds and select the best one?**
 
@@ -1105,7 +1306,7 @@ def calculate_sample_size(baseline_rate: float, mde: float,
 
 ---
 
-### 8.5 Data Drift Detection Implementation
+### 9.5 Data Drift Detection Implementation
 
 **Q: How do we detect when our model's input data has shifted significantly?**
 
@@ -1218,7 +1419,7 @@ groups:
 
 ---
 
-### 8.6 Security Configuration (SAST/DAST + Incident Response)
+### 9.6 Security Configuration (SAST/DAST + Incident Response)
 
 **Q: How do we continuously test for vulnerabilities in our CI/CD pipeline?**
 
@@ -1330,7 +1531,7 @@ jobs:
 
 ---
 
-## 10. Next Steps
+## 11. Next Steps
 
 1. **Review and approve this PRD**
 2. **Proceed to create Frontend PRD** (01-FRONTEND-PRD.md)
@@ -1343,3 +1544,5 @@ jobs:
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-04-16 | Saiyudh | Initial draft |
+| 2.0 | 2026-04-16 | Claude | Major restructure - Cloudflare-first, scale-to-zero, single frontend |
+| 2.1 | 2026-04-16 | Claude | Added Mixture of Experts (MoE) Architecture with Meta-Learner, ECS Fargate for MiroFish, Paper Trading Tournament |
