@@ -1,7 +1,7 @@
 # PRD - Financial Markets Intelligence Platform (FMIP)
 
 **Version:** 2.1
-**Date:** 2026-04-16
+**Date:** 2026-04-17
 **Author:** Saiyudh Mannan
 **Status:** Draft
 **Related To:** Master PRD (00-MASTER-ARCHITECTURE-PRD.md)
@@ -1143,34 +1143,165 @@ class BacktestEngine:
 
 ---
 
-## 7. MiniMax Agent Integration
+## 7. Multi-Provider LLM Client (MiniMax + OpenRouter Fallback)
 
-Use MiniMax API for enhanced reasoning:
+### 7.1 Rate Limit Management
+
+**MiniMax Plan:** 1500 requests / 5 hours ≈ 300 requests/hour ≈ 5 requests/minute
+
+**MiroFish Debate Cost:** 3-6+ calls per Bull/Bear/Judge debate
+
+**Solution:** MiniMax as primary, OpenRouter free tier as fallback when exhausted.
+
+### 7.2 Multi-Provider Client
 
 ```python
 from openai import OpenAI
+from typing import Optional
+import time
+import os
 
-MINIMAX_CLIENT = OpenAI(
-    api_key=os.getenv("MINIMAX_API_KEY"),
-    base_url="https://api.minimax.chat/v1"
-)
+class MultiProviderLLM:
+    """
+    LLM client with MiniMax primary and OpenRouter fallback.
+    Automatically switches when rate limited.
+    """
 
-def query_minimax_agent(prompt: str, system: str = "You are a financial analyst specializing in market prediction.") -> str:
-    """Query MiniMax for enhanced reasoning"""
-    response = MINIMAX_CLIENT.chat.completions.create(
-        model="MiniMax-Text-01",
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.7
-    )
-    return response.choices[0].message.content
+    def __init__(self):
+        # MiniMax (primary - higher quality)
+        self.minimax = OpenAI(
+            api_key=os.getenv("MINIMAX_API_KEY"),
+            base_url="https://api.minimax.chat/v1"
+        )
+        self.minimax_model = "MiniMax-Text-01"
 
-# Use cases
+        # OpenRouter (fallback - free tier)
+        self.openrouter = OpenAI(
+            api_key=os.getenv("OPENROUTER_API_KEY"),
+            base_url="https://openrouter.ai/api/v1"
+        )
+        # Free models available on OpenRouter
+        self.openrouter_models = [
+            "google/gemini-pro",      # Free
+            "anthropic/claude-3-haiku", # Free
+            "meta-llama/llama-3-8b-instruct",  # Free
+        ]
+        self.current_model_idx = 0
+
+        # Rate limiting
+        self.minimax_requests = 0
+        self.minimax_window_start = time.time()
+        self.minimax_limit = 1500  # per 5 hours
+        self.minimax_window = 5 * 3600  # 5 hours in seconds
+
+    def _check_rate_limit(self) -> bool:
+        """Check if MiniMax is within rate limit"""
+        now = time.time()
+        elapsed = now - self.minimax_window_start
+
+        if elapsed > self.minimax_window:
+            # Reset window
+            self.minimax_requests = 0
+            self.minimax_window_start = now
+
+        return self.minimax_requests < self.minimax_limit
+
+    def _use_openrouter(self) -> None:
+        """Rotate to next OpenRouter model"""
+        self.current_model_idx = (self.current_model_idx + 1) % len(self.openrouter_models)
+
+    def generate(
+        self,
+        prompt: str,
+        system: str = "You are a helpful financial analyst.",
+        temperature: float = 0.7
+    ) -> dict:
+        """
+        Generate response with automatic provider fallback.
+        Returns: {text, provider, model, success}
+        """
+
+        # Try MiniMax first
+        if self._check_rate_limit():
+            try:
+                self.minimax_requests += 1
+                response = self.minimax.chat.completions.create(
+                    model=self.minimax_model,
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=temperature
+                )
+                return {
+                    "text": response.choices[0].message.content,
+                    "provider": "minimax",
+                    "model": self.minimax_model,
+                    "success": True
+                }
+            except Exception as e:
+                # Rate limited or error - fall through to OpenRouter
+                print(f"MiniMax error: {e}, trying OpenRouter...")
+
+        # Fallback to OpenRouter
+        model = self.openrouter_models[self.current_model_idx]
+        try:
+            response = self.openrouter.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=temperature
+            )
+            return {
+                "text": response.choices[0].message.content,
+                "provider": "openrouter",
+                "model": model,
+                "success": True
+            }
+        except Exception as e:
+            # OpenRouter also failed - rotate model and retry once
+            self._use_openrouter()
+            try:
+                model = self.openrouter_models[self.current_model_idx]
+                response = self.openrouter.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=temperature
+                )
+                return {
+                    "text": response.choices[0].message.content,
+                    "provider": "openrouter",
+                    "model": model,
+                    "success": True
+                }
+            except Exception as e2:
+                return {
+                    "text": None,
+                    "provider": "none",
+                    "model": None,
+                    "success": False,
+                    "error": str(e2)
+                }
+
+# Global instance
+llm_client = MultiProviderLLM()
+
+# Convenience functions
+def query_llm(prompt: str, system: str = "You are a financial analyst specializing in market prediction.") -> str:
+    """Query with automatic provider selection"""
+    result = llm_client.generate(prompt, system)
+    if result["success"]:
+        return result["text"]
+    return f"Error: {result.get('error', 'Unknown error')}"
+
 def explain_signal(signal: dict) -> str:
     """Explain trading signal in natural language"""
-    return query_minimax_agent(
+    return query_llm(
         f"Explain this trading signal in simple terms: {signal}",
         system="You are a friendly financial advisor explaining market signals."
     )
@@ -1178,18 +1309,68 @@ def explain_signal(signal: dict) -> str:
 def analyze_market_sentiment(symbol: str, news: list) -> str:
     """Analyze market sentiment and provide summary"""
     news_text = "\n".join([f"- {n['title']}: {n['description']}" for n in news[:5]])
-    return query_minimax_agent(
+    return query_llm(
         f"Analyze sentiment for {symbol} based on these headlines:\n{news_text}",
         system="You are a professional financial analyst."
     )
 
 def generate_trading_rationale(signal: dict, context: dict) -> str:
     """Generate natural language rationale for a trade"""
-    return query_minimax_agent(
+    return query_llm(
         f"Generate a trading rationale for:\nSignal: {signal}\nContext: {context}",
         system="You are a quantitative analyst explaining trading decisions."
     )
 ```
+
+### 7.3 CrewAI Integration with Multi-Provider
+
+```python
+from crewai import Agent
+from langchain_openai import ChatOpenAI
+
+# Create LLM with multi-provider fallback
+llm = ChatOpenAI(
+    model_provider=llm_client,  # Custom provider
+    temperature=0.7
+)
+
+# Bull Agent using multi-provider
+bull_agent = Agent(
+    role="Bullish Analyst",
+    goal="Identify bullish signals and upward momentum",
+    backstory="""You are a bullish financial analyst who specializes in
+    identifying upward market movements.""",
+    llm=llm,  # Uses MiniMax → OpenRouter fallback automatically
+    verbose=True
+)
+
+# Same for Bear and Judge agents
+bear_agent = Agent(
+    role="Bearish Analyst",
+    goal="Identify bearish signals and downside risks",
+    backstory="""You are a risk-averse analyst who warns about market downturns.""",
+    llm=llm,
+    verbose=True
+)
+
+judge_agent = Agent(
+    role="Portfolio Judge",
+    goal="Make final position sizing decisions",
+    backstory="""You are the final arbiter for portfolio decisions.""",
+    llm=llm,
+    verbose=True
+)
+```
+
+### 7.4 OpenRouter Free Tier Models
+
+| Model | Context | Quality | Best For |
+|-------|---------|---------|----------|
+| `google/gemini-pro` | 32K | High | Reasoning tasks |
+| `anthropic/claude-3-haiku` | 200K | Medium | Fast responses |
+| `meta-llama/llama-3-8b-instruct` | 8K | Medium | General tasks |
+
+**Note:** OpenRouter free tier has rate limits too (~50 requests/minute). The fallback still respects those limits and rotates models.
 
 ---
 
@@ -1981,3 +2162,4 @@ def calibrate_confidence(raw_confidence: float, expert: str, regime: str) -> flo
 | 1.0 | 2026-04-16 | Saiyudh | Initial financial markets platform PRD |
 | 1.1 | 2026-04-16 | Claude | Added arbitrage & market microstructure section |
 | 2.0 | 2026-04-16 | Claude | Added Mixture of Experts (MoE) architecture, Paper Trading Tournament, Meta-Learner, Prediction Validation, and Success Metrics sections |
+| 2.1 | 2026-04-17 | Claude | Added Multi-Provider LLM Client (MiniMax + OpenRouter fallback) for rate limit resilience |
